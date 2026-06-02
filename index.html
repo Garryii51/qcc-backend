@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quality Command Centre — Records Hub</title>
+
+<!-- CDN libraries: SheetJS (Excel), jsPDF + autotable (PDF) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<style>
+  :root{
+    --bg:#f4f6fb; --panel:#ffffff; --panel-2:#eef2f9; --line:#dde3ee;
+    --ink:#1a2231; --ink-dim:#6b7686; --accent:#0e9f6e; --accent-2:#2563eb;
+    --warn:#e02424; --gold:#c27803; --radius:14px;
+    --shadow:0 1px 3px rgba(20,30,55,.06),0 8px 24px rgba(20,30,55,.05);
+    --mono:'JetBrains Mono','SF Mono',ui-monospace,monospace;
+    --sans:'Space Grotesk','Segoe UI',system-ui,sans-serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+    background-image:radial-gradient(circle at 12% 0%,#e7eefc 0,transparent 45%),
+                     radial-gradient(circle at 90% 8%,#e3f5ec 0,transparent 42%);
+    min-height:100vh;}
+  header{padding:26px 34px 18px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  header h1{font-size:1.45rem;font-weight:700;letter-spacing:-.5px}
+  header h1 span{color:var(--accent)}
+  .sub{color:var(--ink-dim);font-size:.82rem;font-family:var(--mono);margin-top:3px}
+  .nav{display:flex;gap:8px}
+  .nav button{background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);
+    padding:9px 16px;border-radius:10px;cursor:pointer;font-family:var(--sans);font-size:.85rem;transition:.15s}
+  .nav button:hover{border-color:var(--accent);color:var(--ink)}
+  .nav button.active{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+  main{padding:30px 34px 60px;max-width:1200px;margin:0 auto}
+  .view{display:none} .view.show{display:block;animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* Category grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+  .cat-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:22px;cursor:pointer;transition:.18s;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+  .cat-card:hover{transform:translateY(-4px);border-color:var(--c);box-shadow:0 10px 30px rgba(20,30,55,.12)}
+  .cat-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:4px;background:var(--c)}
+  .cat-card .ico{font-size:1.9rem;margin-bottom:10px}
+  .cat-card h3{font-size:1.05rem;margin-bottom:6px}
+  .cat-card p{color:var(--ink-dim);font-size:.8rem;line-height:1.45}
+  .cat-card .count{position:absolute;top:18px;right:20px;font-family:var(--mono);
+    font-size:.78rem;background:var(--panel-2);padding:3px 9px;border-radius:20px;color:var(--c)}
+
+  /* Forms */
+  .form-head{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+  .back{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:8px 14px;border-radius:9px;cursor:pointer;font-size:.85rem}
+  .back:hover{border-color:var(--accent)}
+  .form-head h2{font-size:1.3rem}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:26px;margin-bottom:22px;box-shadow:var(--shadow)}
+  .fields{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .fld{display:flex;flex-direction:column;gap:6px}
+  .fld.full{grid-column:1/-1}
+  label{font-size:.78rem;color:var(--ink-dim);font-weight:500}
+  label .req{color:var(--warn)}
+  input,select,textarea{background:#fff;border:1px solid var(--line);color:var(--ink);
+    padding:11px 13px;border-radius:9px;font-family:var(--sans);font-size:.9rem;width:100%}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(14,159,110,.15)}
+  textarea{resize:vertical;min-height:70px}
+  .row-actions{display:flex;gap:12px;margin-top:8px}
+  .btn{padding:11px 22px;border-radius:10px;border:none;cursor:pointer;font-family:var(--sans);
+    font-weight:600;font-size:.88rem;transition:.15s}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(14,159,110,.3)}
+  .btn-primary:hover{filter:brightness(1.06);transform:translateY(-1px)}
+  .btn-ghost{background:var(--panel-2);color:var(--ink);border:1px solid var(--line)}
+  .btn-ghost:hover{border-color:var(--accent)}
+  .btn-blue{background:var(--accent-2);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.3)}
+  .btn-blue:hover{filter:brightness(1.06);transform:translateY(-1px)}
+  .btn-warn{background:transparent;color:var(--warn);border:1px solid var(--warn)}
+  .btn-warn:hover{background:var(--warn);color:#fff}
+
+  /* Preview */
+  .preview{background:var(--panel-2);border:1px dashed var(--accent);border-radius:var(--radius);
+    padding:22px;margin-bottom:22px}
+  .preview h4{font-size:.85rem;color:var(--accent);margin-bottom:14px;font-family:var(--mono);text-transform:uppercase;letter-spacing:1px}
+  .preview-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 26px}
+  .pv-item{display:flex;flex-direction:column;border-bottom:1px solid var(--line);padding-bottom:7px}
+  .pv-item .k{font-size:.72rem;color:var(--ink-dim)}
+  .pv-item .v{font-size:.92rem;margin-top:2px}
+
+  /* Table */
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+  .toolbar input[type=search]{max-width:260px}
+  .toolbar .spacer{flex:1}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line)}
+  thead th{background:var(--panel-2)}
+  th{color:var(--ink-dim);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;user-select:none}
+  tr:hover td{background:var(--panel-2)}
+  .tbl-wrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:auto;box-shadow:var(--shadow)}
+  .icon-btn{background:none;border:none;cursor:pointer;font-size:.95rem;padding:3px 6px;border-radius:6px}
+  .icon-btn:hover{background:var(--panel-2)}
+  .empty{text-align:center;color:var(--ink-dim);padding:40px;font-size:.9rem}
+
+  /* Stats */
+  .stat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:26px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+  .stat .n{font-size:1.8rem;font-weight:700;font-family:var(--mono)}
+  .stat .l{color:var(--ink-dim);font-size:.78rem;margin-top:4px}
+  .chart-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin-bottom:22px;box-shadow:var(--shadow)}
+  .chart-box h4{margin-bottom:16px;font-size:1rem}
+  .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media(max-width:820px){.fields,.preview-grid,.chart-grid{grid-template-columns:1fr}}
+
+  /* Modal */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(20,30,55,.45);z-index:50;
+    align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:28px;max-width:600px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(20,30,55,.25)}
+  .modal h3{margin-bottom:18px}
+  .toast{position:fixed;bottom:26px;right:26px;background:var(--accent);color:#fff;
+    padding:13px 22px;border-radius:10px;font-weight:600;z-index:99;opacity:0;transform:translateY(20px);
+    transition:.3s;pointer-events:none;box-shadow:0 8px 24px rgba(14,159,110,.35)}
+  .toast.show{opacity:1;transform:none}
+  .badge{padding:3px 9px;border-radius:20px;font-size:.72rem;font-family:var(--mono)}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Quality <span>Command Centre</span></h1>
+    <div class="sub">Records Hub · multi-category capture, analytics & reporting</div>
+  </div>
+  <nav class="nav">
+    <button id="nav-home" class="active" onclick="go('home')">Categories</button>
+    <button id="nav-stats" onclick="go('stats')">Statistics</button>
+  </nav>
+</header>
+
+<main>
+  <!-- HOME: category grid -->
+  <section id="view-home" class="view show">
+    <div class="grid" id="catGrid"></div>
+  </section>
+
+  <!-- FORM + TABLE per category -->
+  <section id="view-cat" class="view">
+    <div class="form-head">
+      <button class="back" onclick="go('home')">← Categories</button>
+      <h2 id="catTitle"></h2>
+    </div>
+
+    <div class="card">
+      <div class="fields" id="formFields"></div>
+      <div class="row-actions">
+        <button class="btn btn-primary" onclick="saveRecord()">✓ Submit & Save</button>
+        <button class="btn btn-blue" onclick="buildPreview()">Preview</button>
+        <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
+      </div>
+    </div>
+
+    <div class="preview" id="previewBox" style="display:none">
+      <h4>Preview — review before saving</h4>
+      <div class="preview-grid" id="previewGrid"></div>
+      <div class="row-actions" style="margin-top:18px">
+        <button class="btn btn-primary" onclick="saveRecord()">✓ Confirm & Save</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('previewBox').style.display='none'">Edit</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Search records…" oninput="renderTable()">
+      <span class="spacer"></span>
+      <button class="btn btn-blue" onclick="exportExcel()">⬇ Excel</button>
+      <button class="btn btn-blue" onclick="exportPDF()">⬇ PDF</button>
+    </div>
+
+    <div class="tbl-wrap"><table id="recTable"></table></div>
+  </section>
+
+  <!-- STATS -->
+  <section id="view-stats" class="view">
+    <div class="stat-cards" id="statCards"></div>
+    <div class="chart-box">
+      <h4>Records by Category</h4>
+      <canvas id="chartCat" height="110"></canvas>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h4>Cost of Poor Quality — by Type (₹)</h4><canvas id="chartCopq"></canvas></div>
+      <div class="chart-box"><h4>Cost Saving — Monthly Total (₹)</h4><canvas id="chartSave"></canvas></div>
+    </div>
+  </section>
+</main>
+
+<!-- Inspect modal -->
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3>Record Inspection</h3>
+    <div class="preview-grid" id="modalGrid"></div>
+    <div class="row-actions" style="margin-top:22px">
+      <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+      <button class="btn btn-warn" onclick="deleteFromModal()">Delete Record</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   DATA LAYER — talks to the Flask backend (which holds the
+   Supabase service key). The rest of the app uses flat records
+   (rec.category, rec.projectCode, ...); this layer maps between
+   that flat shape and the DB shape {category, serial_no, data{}}.
+   ============================================================ */
+const API_BASE = 'https://quality-command-center.onrender.com';   // ← change to your Render URL, e.g. 'https://qcc-backend.onrender.com'
+
+/* Free-tier servers (Render) sleep when idle and take ~30-50s to wake.
+   apiFetch retries with a longer timeout and shows a "waking up" overlay
+   so a cold start looks like loading, not an error. */
+function showWaking(on){
+  let el=document.getElementById('wakingOverlay');
+  if(on){
+    if(!el){
+      el=document.createElement('div'); el.id='wakingOverlay';
+      el.style.cssText='position:fixed;inset:0;background:rgba(244,246,251,.85);backdrop-filter:blur(2px);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:var(--sans)';
+      el.innerHTML='<div style="width:42px;height:42px;border:4px solid #dde3ee;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div><div style="color:var(--ink);font-weight:600">Connecting to server…</div><div style="color:var(--ink-dim);font-size:.82rem">First load can take up to a minute if the server was asleep.</div>';
+      document.body.appendChild(el);
+      if(!document.getElementById('spinKf')){const st=document.createElement('style');st.id='spinKf';st.textContent='@keyframes spin{to{transform:rotate(360deg)}}';document.head.appendChild(st);}
+    }
+  } else if(el){ el.remove(); }
+}
+
+async function apiFetch(url, opts={}, {retries=2, timeoutMs=20000}={}){
+  for(let attempt=0; attempt<=retries; attempt++){
+    const ctrl=new AbortController();
+    const t=setTimeout(()=>ctrl.abort(), timeoutMs);
+    try{
+      const res=await fetch(url, {...opts, signal:ctrl.signal});
+      clearTimeout(t);
+      // 502/503/504 = server waking or briefly unavailable -> retry
+      if((res.status===502||res.status===503||res.status===504) && attempt<retries){
+        showWaking(true); await new Promise(r=>setTimeout(r, 4000)); continue;
+      }
+      return res;
+    }catch(e){
+      clearTimeout(t);
+      if(attempt<retries){ showWaking(true); await new Promise(r=>setTimeout(r, 4000)); continue; }
+      throw e;
+    }
+  }
+}
+
+const DB = {
+  // DB row {id, category, serial_no, data{...}, created_at} -> flat record
+  _flat(row){
+    const r = { id: row.id, category: row.category, created_at: row.created_at,
+                ...(row.data || {}) };
+    if (row.serial_no != null) r.srno = row.serial_no;
+    return r;
+  },
+  async list(category){
+    const url = API_BASE + '/api/records' + (category ? ('?category=' + encodeURIComponent(category)) : '');
+    const res = await apiFetch(url);
+    showWaking(false);
+    if(!res.ok) throw new Error('list failed: ' + res.status);
+    const rows = await res.json();
+    return rows.map(this._flat);
+  },
+  async insert(rec){
+    // strip control fields; everything else is category data
+    const { category, id, created_at, srno, ...data } = rec;
+    const res = await apiFetch(API_BASE + '/api/records', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ category, data })
+    });
+    showWaking(false);
+    if(!res.ok) throw new Error('save failed: ' + res.status);
+    return this._flat(await res.json());   // includes server-assigned serial_no + id
+  },
+  async remove(id){
+    const res = await apiFetch(API_BASE + '/api/records/' + encodeURIComponent(id), { method:'DELETE' });
+    showWaking(false);
+    if(!res.ok) throw new Error('delete failed: ' + res.status);
+  }
+};
+
+/* ============================================================
+   SCHEMA  — each category defines its own fields.
+   types: text | textarea | number | date | select(options) | money
+          | month(auto from a date field) | serial(auto Sr.No.)
+          | calc(auto-sum of other fields)
+   ============================================================ */
+const FUNCTIONS = ['Project Engineering','Automation','Electrical','Sales Solution Design',
+  'Project Management','SCM','Vendor','IT Software','IT Hardware','Assembly P1','Assembly P2',
+  'Assembly P3','Site Execution','Robotics','System Engineering'];
+const LEVELS = ['L1','L2','L3','L4','L5'];
+
+const CATEGORIES = {
+  copq:{ name:'Cost of Poor Quality', icon:'⚠️', color:'#ff6b6b',
+    desc:'Defect/failure tracking with 3-stage cost impact and rupee totals.',
+    tableCols:['srno','projectCode','customerName','functionImpacted','totalCost'],
+    fields:[
+      {k:'srno',label:'Sr. No.',type:'serial'},
+      {k:'projectCode',label:'Project Code',type:'text',req:true},
+      {k:'customerName',label:'Customer Name',type:'text',req:true},
+      {k:'supplierName',label:'Supplier Name',type:'select',options:FUNCTIONS,req:true},
+      {k:'issueDesc',label:'Issue Description',type:'textarea',full:true,req:true},
+      {k:'failureType',label:'Type of Failure',type:'text'},
+      {k:'level',label:'Level',type:'select',options:LEVELS},
+      {k:'dateIdentified',label:'Date Identified',type:'date',req:true},
+      {k:'monthIdentified',label:'Month Identified',type:'month',from:'dateIdentified'},
+      {k:'resolutionDate',label:'Resolution Date',type:'date'},
+      {k:'personResp',label:'Person Responsible',type:'text'},
+      {k:'functionImpacted',label:'Function Impacted',type:'select',options:FUNCTIONS,req:true},
+      // Stage 1
+      {k:'s1person',label:'Stage 1 — Person Impacted',type:'select',options:FUNCTIONS},
+      {k:'s1hours',label:'Stage 1 — Person Hours Lost',type:'number'},
+      {k:'s1cost',label:'Stage 1 — Cost Impact (₹)',type:'money'},
+      // Stage 2
+      {k:'s2person',label:'Stage 2 — Person Impacted',type:'select',options:FUNCTIONS},
+      {k:'s2hours',label:'Stage 2 — Person Hours Lost',type:'number'},
+      {k:'s2cost',label:'Stage 2 — Cost Impact (₹)',type:'money'},
+      // Stage 3
+      {k:'s3person',label:'Stage 3 — Person Impacted',type:'select',options:FUNCTIONS},
+      {k:'s3hours',label:'Stage 3 — Person Hours Lost',type:'number'},
+      {k:'s3cost',label:'Stage 3 — Cost Impact (₹)',type:'money'},
+      // Totals (auto)
+      {k:'totalHours',label:'Total Hours Lost (Hrs)',type:'calc',sum:['s1hours','s2hours','s3hours']},
+      {k:'appraisalCost',label:'Appraisal Cost (₹)',type:'money'},
+      {k:'totalCost',label:'Total Cost Impact (₹)',type:'calc',sum:['s1cost','s2cost','s3cost','appraisalCost'],money:true},
+      {k:'rootCause',label:'Remarks / Root Cause',type:'textarea',full:true},
+      {k:'custEscalation',label:'Customer Escalation',type:'select',options:['Yes','No']}
+    ]},
+  goodpractice:{ name:'Good Practices', icon:'✅', color:'#0e9f6e',
+    desc:'Capture best practices using the STAR framework (Situation · Task · Action · Result).',
+    tableCols:['srno','date','project','category','involved'],
+    fields:[
+      {k:'srno',label:'Sr. No.',type:'serial'},
+      {k:'date',label:'Date',type:'date',req:true},
+      {k:'project',label:'Project / Department',type:'text',req:true},
+      {k:'category',label:'Category',type:'select',req:true,
+        options:['Innovation','Process Improvement','Quality','Cost Saving','Teamwork','Delivery','Customer Appreciation','Safety','Standardization']},
+      {k:'situation',label:'S — Situation',type:'textarea',full:true,req:true},
+      {k:'task',label:'T — Task',type:'textarea',full:true,req:true},
+      {k:'action',label:'A — Action',type:'textarea',full:true,req:true},
+      {k:'result',label:'R — Result',type:'textarea',full:true,req:true},
+      {k:'involved',label:'Team / Individual Involved',type:'text'}
+    ]},
+  costsaving:{ name:'Cost Saving', icon:'💰', color:'#c27803',
+    desc:'Log cost-reduction initiatives (STAR) with before/after costs and savings.',
+    tableCols:['srno','date','project','difference','resultSaving'],
+    fields:[
+      {k:'srno',label:'Sr. No.',type:'serial'},
+      {k:'date',label:'Date',type:'date',req:true},
+      {k:'project',label:'Dept. / Project Name',type:'text',req:true},
+      {k:'person',label:'Person Name',type:'text'},
+      {k:'situation',label:'S — Situation',type:'textarea',full:true,req:true},
+      {k:'task',label:'T — Task',type:'textarea',full:true},
+      {k:'action',label:'A — Action',type:'textarea',full:true},
+      {k:'result',label:'R — Result',type:'textarea',full:true},
+      {k:'costBefore',label:'Cost Before (₹)',type:'money'},
+      {k:'costAfter',label:'Cost After (₹)',type:'money'},
+      {k:'difference',label:'Difference in Cost (₹)',type:'calc',diff:['costBefore','costAfter'],money:true},
+      {k:'resultSaving',label:'Result in Savings (₹)',type:'money'},
+      {k:'potentialSaving',label:'Potential Saving (₹)',type:'money'},
+      {k:'comments',label:'Comments',type:'textarea',full:true},
+      {k:'approvedBy',label:'Approved By',type:'text'},
+      {k:'managerRemark',label:'Manager\'s Remark',type:'textarea',full:true}
+    ]},
+  presale:{ name:'Presale vs Indenting', icon:'📊', color:'#2563eb',
+    desc:'Compare presales estimates vs actual indenting/purchase, with variance & savings.',
+    tableCols:['srno','projectCode','partName','qtyVariance','actualSaving'],
+    fields:[
+      {k:'srno',label:'Sr. No.',type:'serial'},
+      {k:'projectCode',label:'Project Code',type:'text',req:true},
+      {k:'designerName',label:'Designer Name',type:'text'},
+      {k:'partName',label:'Part Name',type:'text',req:true},
+      {k:'partCode',label:'Part Code',type:'text'},
+      {k:'partDesc',label:'Part Description',type:'textarea',full:true},
+      {k:'unitCost',label:'Unit Cost (₹)',type:'money'},
+      {k:'presalesQty',label:'Presales Qty',type:'number'},
+      {k:'presalesCost',label:'Presales Cost (₹)',type:'money'},
+      {k:'indentFor',label:'Indent For',type:'text'},
+      {k:'revisedPartCode',label:'Revised Part Code Ordered',type:'text'},
+      {k:'indentingQty',label:'Indenting Qty',type:'number'},
+      {k:'purchaseQty',label:'Purchase Qty',type:'number'},
+      {k:'purchaseRate',label:'Purchase Rate (₹)',type:'money'},
+      {k:'purchaseValue',label:'Purchase Value (₹)',type:'money'},
+      {k:'totalQty',label:'Total Qty',type:'number'},
+      {k:'totalValue',label:'Total Value (₹)',type:'money'},
+      {k:'qtyVariance',label:'Qty Variance (Indented vs Presales)',type:'number'},
+      {k:'actualSaving',label:'Price Variance / Actual Saving (₹)',type:'money'},
+      {k:'situation',label:'S — Situation',type:'textarea',full:true},
+      {k:'task',label:'T — Task',type:'textarea',full:true},
+      {k:'action',label:'A — Action',type:'textarea',full:true},
+      {k:'result',label:'R — Result',type:'textarea',full:true},
+      {k:'potentialSaving',label:'Potential Saving (₹)',type:'money'}
+    ]},
+  changenote:{ name:'Change Notes', icon:'📝', color:'#7c3aed',
+    desc:'Track engineering change notes with reason, approval and document link.',
+    tableCols:['srno','projectCode','dept','changeNoteNo','link'],
+    fields:[
+      {k:'srno',label:'Sr. No.',type:'serial'},
+      {k:'projectCode',label:'Project Code',type:'text',req:true},
+      {k:'dept',label:'Dept.',type:'text',req:true},
+      {k:'changeNoteNo',label:'Change Note Number',type:'text',req:true},
+      {k:'reasonBrief',label:'Reason & Change in Brief',type:'textarea',full:true,req:true},
+      {k:'preparedBy',label:'Prepared By',type:'text'},
+      {k:'cnApprovedBy',label:'CN Approved By',type:'text'},
+      {k:'link',label:'Hyperlink for Change Note',type:'link',full:true}
+    ]}
+};
+
+/* ---------------- state ---------------- */
+let current = null;   // current category key
+let sortKey = 'created_at', sortDir = -1;
+
+/* ---------------- helpers ---------------- */
+const $ = s => document.querySelector(s);
+const fmtMoney = v => v===''||v==null||isNaN(v)? '—' : '₹'+Number(v).toLocaleString('en-IN');
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ---------------- navigation ---------------- */
+function go(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('show'));
+  $('#nav-home').classList.toggle('active', v==='home');
+  $('#nav-stats').classList.toggle('active', v==='stats');
+  if(v==='home'){ $('#view-home').classList.add('show'); renderCatGrid(); }
+  if(v==='stats'){ $('#view-stats').classList.add('show'); renderStats(); }
+  if(v==='cat'){ $('#view-cat').classList.add('show'); }
+}
+
+/* ---------------- category grid ---------------- */
+async function renderCatGrid(){
+  let all=[];
+  try{ all = await DB.list(); }catch(e){ console.error(e); }
+  const counts = {};
+  all.forEach(r=>counts[r.category]=(counts[r.category]||0)+1);
+  $('#catGrid').innerHTML = Object.entries(CATEGORIES).map(([k,c])=>`
+    <div class="cat-card" style="--c:${c.color}" onclick="openCat('${k}')">
+      <span class="count">${counts[k]||0}</span>
+      <div class="ico">${c.icon}</div>
+      <h3>${c.name}</h3>
+      <p>${c.desc}</p>
+    </div>`).join('');
+}
+
+/* ---------------- open category form ---------------- */
+function openCat(k){
+  current = k;
+  const c = CATEGORIES[k];
+  $('#catTitle').textContent = c.icon+'  '+c.name;
+  $('#formFields').innerHTML = c.fields.map(f=>{
+    const id = 'f_'+f.k;
+    const req = f.req? '<span class="req"> *</span>':'';
+    let input;
+    if(f.type==='textarea') input=`<textarea id="${id}"></textarea>`;
+    else if(f.type==='link') input=`<input id="${id}" type="url" placeholder="https://...">`;
+    else if(f.type==='select') input=`<select id="${id}"><option value="">— select —</option>${f.options.map(o=>`<option>${o}</option>`).join('')}</select>`;
+    else if(f.type==='number'||f.type==='money') input=`<input id="${id}" type="number" step="any" oninput="recalc()">`;
+    else if(f.type==='date'){ const def=f.req?new Date().toISOString().slice(0,10):''; input=`<input id="${id}" type="date" value="${def}" onchange="recalc()">`; }
+    else if(f.type==='month') input=`<input id="${id}" type="text" readonly placeholder="(auto from date)" style="background:var(--panel-2);color:var(--ink-dim)">`;
+    else if(f.type==='serial') input=`<input id="${id}" type="text" readonly placeholder="(auto on save)" style="background:var(--panel-2);color:var(--ink-dim)">`;
+    else if(f.type==='calc') input=`<input id="${id}" type="text" readonly placeholder="(auto)" style="background:#e9f7f1;color:var(--accent);font-weight:700;border-color:#bfe6d6">`;
+    else input=`<input id="${id}" type="text">`;
+    return `<div class="fld ${f.full?'full':''}"><label>${f.label}${req}</label>${input}</div>`;
+  }).join('');
+  $('#previewBox').style.display='none';
+  $('#search').value='';
+  sortKey='created_at'; sortDir=-1;
+  go('cat');
+  recalc();
+  renderTable();
+}
+
+/* live auto-calc for month / calc fields. Uses a running map so a
+   calc field can depend on the result of an earlier calc field. */
+function recalc(){
+  const c=CATEGORIES[current]; if(!c) return;
+  const vals={};                                   // key -> numeric value
+  const num=k=>{ if(k in vals) return vals[k]; const e=$('#f_'+k); return e?(+e.value||0):0; };
+  for(const f of c.fields){
+    const el=$('#f_'+f.k); if(!el) continue;
+    if(f.type==='month'){
+      const src=$('#f_'+f.from);
+      el.value = (src && src.value)? new Date(src.value).toLocaleString('en-US',{month:'short',year:'numeric'}) : '';
+    }
+    if(f.type==='calc'){
+      let val=0;
+      if(f.sum) f.sum.forEach(k=>val+=num(k));
+      else if(f.diff) val=num(f.diff[0])-num(f.diff[1]);
+      else if(f.mul) val=f.mul.reduce((p,k)=>p*num(k),1);
+      vals[f.k]=val;
+      el.value = f.money? (val?fmtMoney(val):'') : (val||'');
+      el.dataset.raw = val;
+    } else {
+      vals[f.k]=(+el.value||0);                     // make raw inputs available to later calcs
+    }
+  }
+}
+
+function clearForm(){
+  CATEGORIES[current].fields.forEach(f=>{
+    const el=$('#f_'+f.k);
+    if(f.type==='date'&&f.req) el.value=new Date().toISOString().slice(0,10);
+    else if(f.type==='calc'||f.type==='month'||f.type==='serial') el.value='';
+    else el.value='';
+  });
+  recalc();
+  $('#previewBox').style.display='none';
+}
+
+/* ---------------- preview ---------------- */
+function collectForm(){
+  recalc();
+  const c=CATEGORIES[current], rec={category:current};
+  for(const f of c.fields){
+    if(f.type==='serial'){ continue; }            // assigned at save
+    if(f.type==='calc'){ rec[f.k]=$('#f_'+f.k).dataset.raw||0; continue; }
+    const el=$('#f_'+f.k); const v=(el.value||'').trim();
+    if(f.req && !v){ toast('Missing: '+f.label); return null; }
+    rec[f.k]=v;
+  }
+  return rec;
+}
+/* format a field's value for display (preview, modal) */
+function dispVal(f, rec){
+  if(f.type==='serial') return rec[f.k]!=null&&rec[f.k]!==''? esc(rec[f.k]) : '(auto on save)';
+  if(f.type==='link') return rec[f.k]? `<a href="${esc(rec[f.k])}" target="_blank" rel="noopener" style="color:var(--accent-2);word-break:break-all">${esc(rec[f.k])}</a>` : '—';
+  if(f.type==='money') return fmtMoney(rec[f.k]);
+  if(f.type==='calc') return f.money? fmtMoney(rec[f.k]) : esc(rec[f.k]||'—');
+  return esc(rec[f.k]||'—');
+}
+function buildPreview(){
+  const rec=collectForm(); if(!rec) return;
+  const c=CATEGORIES[current];
+  $('#previewGrid').innerHTML=c.fields.map(f=>
+    `<div class="pv-item"><span class="k">${f.label}</span><span class="v">${dispVal(f,rec)}</span></div>`
+  ).join('');
+  $('#previewBox').style.display='block';
+  $('#previewBox').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+async function saveRecord(){
+  const rec=collectForm(); if(!rec) return;
+  try{
+    await DB.insert(rec);          // backend assigns the sequential Sr. No.
+    $('#previewBox').style.display='none';
+    clearForm();
+    toast('✓ Record saved');
+    renderTable();
+  }catch(e){
+    toast('⚠ Save failed — check connection');
+    console.error(e);
+  }
+}
+
+/* ---------------- table ---------------- */
+async function renderTable(){
+  const c=CATEGORIES[current];
+  let recs;
+  try{ recs=await DB.list(current); }
+  catch(e){ $('#recTable').innerHTML=`<tr><td><div class="empty">⚠ Could not load records. Is the backend running and API_BASE correct?</div></td></tr>`; console.error(e); return; }
+  const q=$('#search').value.toLowerCase();
+  if(q) recs=recs.filter(r=>Object.values(r).some(v=>String(v).toLowerCase().includes(q)));
+  recs.sort((a,b)=>{
+    let x=a[sortKey]||'', y=b[sortKey]||'';
+    if(!isNaN(x)&&!isNaN(y)&&x!==''&&y!==''){x=+x;y=+y;}
+    return x<y?-sortDir : x>y?sortDir : 0;
+  });
+  const cols=(c.tableCols? c.tableCols.map(k=>c.fields.find(f=>f.k===k)) : c.fields.slice(0,5));
+  const tbl=$('#recTable');
+  if(!recs.length){ tbl.innerHTML=`<tr><td><div class="empty">No records yet. Fill the form above to add one.</div></td></tr>`; return; }
+  tbl.innerHTML=`
+    <thead><tr>
+      ${cols.map(f=>`<th onclick="setSort('${f.k}')">${f.label}${sortKey===f.k?(sortDir>0?' ▲':' ▼'):''}</th>`).join('')}
+      <th>Actions</th>
+    </tr></thead>
+    <tbody>
+      ${recs.map(r=>`<tr>
+        ${cols.map(f=>{ let cell;
+          if(f.type==='money'||(f.type==='calc'&&f.money)) cell=fmtMoney(r[f.k]);
+          else if(f.type==='link') cell = r[f.k]? `<a href="${esc(r[f.k])}" target="_blank" rel="noopener" style="color:var(--accent-2)">Open ↗</a>` : '—';
+          else { const raw=(r[f.k]==null||r[f.k]==='')?'—':String(r[f.k]); cell=esc(raw.length>50?raw.slice(0,50)+'…':raw); }
+          return `<td>${cell}</td>`; }).join('')}
+        <td>
+          <button class="icon-btn" title="Inspect" onclick="inspect('${r.id}')">🔍</button>
+          <button class="icon-btn" title="Delete" onclick="del('${r.id}')">🗑️</button>
+        </td>
+      </tr>`).join('')}
+    </tbody>`;
+}
+function setSort(k){ if(sortKey===k) sortDir*=-1; else {sortKey=k;sortDir=1;} renderTable(); }
+
+/* ---------------- inspect modal ---------------- */
+let modalId=null;
+async function inspect(id){
+  const recs=await DB.list(current);
+  const r=recs.find(x=>x.id===id); if(!r) return;
+  modalId=id;
+  const c=CATEGORIES[current];
+  $('#modalGrid').innerHTML=c.fields.map(f=>
+    `<div class="pv-item"><span class="k">${f.label}</span><span class="v">${dispVal(f,r)}</span></div>`
+  ).join('') + `<div class="pv-item full" style="grid-column:1/-1"><span class="k">Saved</span><span class="v">${new Date(r.created_at).toLocaleString('en-IN')}</span></div>`;
+  $('#modalBg').classList.add('show');
+}
+function closeModal(){ $('#modalBg').classList.remove('show'); modalId=null; }
+async function deleteFromModal(){ if(modalId){ await DB.remove(modalId); closeModal(); toast('Record deleted'); renderTable(); } }
+async function del(id){ if(confirm('Delete this record?')){ await DB.remove(id); toast('Record deleted'); renderTable(); } }
+
+/* ---------------- exports ---------------- */
+async function exportRows(){
+  const c=CATEGORIES[current];
+  const recs=await DB.list(current);
+  const headers=c.fields.map(f=>f.label).concat('Saved At');
+  const rows=recs.map(r=>c.fields.map(f=>
+    (f.type==='money'||f.type==='calc')? (r[f.k]?Number(r[f.k]):'') : (r[f.k]??'')
+  ).concat(new Date(r.created_at).toLocaleString('en-IN')));
+  return {headers,rows,name:c.name};
+}
+async function exportExcel(){
+  const {headers,rows,name}=await exportRows();
+  if(!rows.length){ toast('No records to export'); return; }
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  ws['!cols']=headers.map(()=>({wch:20}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));
+  XLSX.writeFile(wb, name.replace(/\s+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  toast('Excel exported');
+}
+async function exportPDF(){
+  const {headers,rows,name}=await exportRows();
+  if(!rows.length){ toast('No records to export'); return; }
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape'});
+  doc.setFontSize(15); doc.text('Quality Command Centre — '+name,14,15);
+  doc.setFontSize(9); doc.setTextColor(120); doc.text('Generated: '+new Date().toLocaleString('en-IN'),14,21);
+  doc.autoTable({ head:[headers], body:rows, startY:26, styles:{fontSize:7,cellPadding:2},
+    headStyles:{fillColor:[61,220,151],textColor:[6,35,26]}, alternateRowStyles:{fillColor:[245,247,250]} });
+  doc.save(name.replace(/\s+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.pdf');
+  toast('PDF exported');
+}
+
+/* ---------------- statistics ---------------- */
+let charts={};
+async function renderStats(){
+  const all=await DB.list();
+  // stat cards
+  const totalCopq=all.filter(r=>r.category==='copq').reduce((s,r)=>s+(+r.totalCost||0),0);
+  const totalSave=all.filter(r=>r.category==='costsaving').reduce((s,r)=>s+(+r.resultSaving||0),0);
+  $('#statCards').innerHTML=`
+    <div class="stat"><div class="n">${all.length}</div><div class="l">Total Records</div></div>
+    <div class="stat"><div class="n" style="color:var(--warn)">${fmtMoney(totalCopq)}</div><div class="l">Total Cost of Poor Quality</div></div>
+    <div class="stat"><div class="n" style="color:var(--gold)">${fmtMoney(totalSave)}</div><div class="l">Total Cost Saving</div></div>
+    <div class="stat"><div class="n" style="color:var(--accent)">${fmtMoney(totalSave-totalCopq)}</div><div class="l">Net (Saving − COPQ)</div></div>`;
+
+  Object.values(charts).forEach(c=>c&&c.destroy());
+
+  // records by category
+  const catLabels=Object.values(CATEGORIES).map(c=>c.name);
+  const catData=Object.keys(CATEGORIES).map(k=>all.filter(r=>r.category===k).length);
+  const catColors=Object.values(CATEGORIES).map(c=>c.color);
+  charts.cat=new Chart($('#chartCat'),{type:'bar',
+    data:{labels:catLabels,datasets:[{data:catData,backgroundColor:catColors,borderRadius:6}]},
+    options:chartOpts(true)});
+
+  // COPQ by type
+  const copq=all.filter(r=>r.category==='copq');
+  const types={}; copq.forEach(r=>{const t=r.failureType||'Unspecified'; types[t]=(types[t]||0)+(+r.totalCost||0);});
+  charts.copq=new Chart($('#chartCopq'),{type:'bar',
+    data:{labels:Object.keys(types),datasets:[{data:Object.values(types),backgroundColor:'#ff6b6b',borderRadius:6}]},
+    options:chartOpts()});
+
+  // saving by month
+  const save=all.filter(r=>r.category==='costsaving');
+  const months={}; save.forEach(r=>{const m=(r.date||'').slice(0,7)||'—'; months[m]=(months[m]||0)+(+r.resultSaving||0);});
+  const mk=Object.keys(months).sort();
+  charts.save=new Chart($('#chartSave'),{type:'bar',
+    data:{labels:mk,datasets:[{data:mk.map(m=>months[m]),backgroundColor:'#f5c451',borderRadius:6}]},
+    options:chartOpts()});
+}
+function chartOpts(){
+  return {responsive:true,plugins:{legend:{display:false}},
+    scales:{x:{ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}},
+            y:{ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}}}};
+}
+
+/* ---------------- init ---------------- */
+renderCatGrid();
+</script>
+</body>
+</html>
