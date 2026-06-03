@@ -412,6 +412,15 @@ const CATEGORIES = {
       {k:'preparedBy',label:'Prepared By',type:'text'},
       {k:'cnApprovedBy',label:'CN Approved By',type:'text'},
       {k:'link',label:'Hyperlink for Change Note',type:'link',full:true}
+    ]},
+  champion:{ name:'Weekly Champion Records', icon:'🏆', color:'#e8590c',
+    desc:'Recognise the weekly champion and the work that earned it.',
+    tableCols:['srno','date','championName','workDone'],
+    fields:[
+      {k:'srno',label:'Sr. No.',type:'serial'},
+      {k:'date',label:'Date',type:'date',req:true},
+      {k:'championName',label:'Name of Champion',type:'text',req:true},
+      {k:'workDone',label:'Work Done',type:'textarea',full:true,req:true}
     ]}
 };
 
