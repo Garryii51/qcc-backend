@@ -41,6 +41,8 @@
   @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
   /* Category grid */
+  .header-logo{flex:1;display:flex;justify-content:center;align-items:center}
+  .header-logo img{max-height:52px;width:auto;max-width:260px;object-fit:contain}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
   .cat-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     padding:22px;cursor:pointer;transition:.18s;position:relative;overflow:hidden;box-shadow:var(--shadow)}
@@ -62,6 +64,7 @@
   .fields{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
   .fld{display:flex;flex-direction:column;gap:6px}
   .fld.full{grid-column:1/-1}
+  .form-section{font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);padding:14px 0 2px;border-bottom:2px solid var(--line);margin-top:6px}
   label{font-size:.78rem;color:var(--ink-dim);font-weight:500}
   label .req{color:var(--warn)}
   input,select,textarea{background:#fff;border:1px solid var(--line);color:var(--ink);
@@ -132,8 +135,9 @@
 <header>
   <div>
     <h1>Quality <span>Command Centre</span></h1>
-    <div class="sub">Records Hub · multi-category data capture, analytics & reporting</div>
+    <div class="sub">Records Hub · multi-category capture, analytics & reporting</div>
   </div>
+  <div class="header-logo"><img src="data:image/jpeg;base64,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" alt="Armstrong Dematic"></div>
   <nav class="nav">
     <button id="nav-home" class="active" onclick="go('home')">Categories</button>
     <button id="nav-stats" onclick="go('stats')">Statistics</button>
@@ -143,6 +147,7 @@
 <main>
   <!-- HOME: category grid -->
   <section id="view-home" class="view show">
+    
     <div class="grid" id="catGrid"></div>
   </section>
 
@@ -183,14 +188,22 @@
 
   <!-- STATS -->
   <section id="view-stats" class="view">
-    <div class="stat-cards" id="statCards"></div>
-    <div class="chart-box">
-      <h4>Records by Category</h4>
-      <canvas id="chartCat" height="110"></canvas>
+    <div class="stats-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <h2 style="font-size:1.3rem">Statistics Dashboard</h2>
+      <button class="btn btn-blue" onclick="exportStatsPDF()">⬇ Download PDF</button>
     </div>
-    <div class="chart-grid">
-      <div class="chart-box"><h4>Cost of Poor Quality — by Type (₹)</h4><canvas id="chartCopq"></canvas></div>
-      <div class="chart-box"><h4>Cost Saving — Monthly Total (₹)</h4><canvas id="chartSave"></canvas></div>
+    <div id="statsArea">
+      <div class="stat-cards" id="statCards"></div>
+      <div class="chart-box">
+        <h4>Entries per Category</h4>
+        <canvas id="chartCat" height="110"></canvas>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-box"><h4>Cost Saving — Project vs Saving (₹)</h4><canvas id="chartSave"></canvas></div>
+        <div class="chart-box"><h4>COPQ — Supplier vs Cost (₹)</h4><canvas id="chartCopq"></canvas></div>
+        <div class="chart-box"><h4>Change Notes — Count per Project Code</h4><canvas id="chartCN"></canvas></div>
+        <div class="chart-box"><h4>Good Practices — Count per Designer</h4><canvas id="chartGP"></canvas></div>
+      </div>
     </div>
   </section>
 </main>
@@ -337,12 +350,13 @@ const CATEGORIES = {
     ]},
   goodpractice:{ name:'Good Practices', icon:'✅', color:'#0e9f6e',
     desc:'Capture best practices using the STAR framework (Situation · Task · Action · Result).',
-    tableCols:['srno','date','project','category','involved'],
+    tableCols:['srno','date','project','practiceCategory','involved'],
     fields:[
       {k:'srno',label:'Sr. No.',type:'serial'},
       {k:'date',label:'Date',type:'date',req:true},
       {k:'project',label:'Project / Department',type:'text',req:true},
-      {k:'category',label:'Category',type:'select',req:true,
+      {k:'designerName',label:'Designer Name',type:'text'},
+      {k:'practiceCategory',label:'Category',type:'select',req:true,
         options:['Innovation','Process Improvement','Quality','Cost Saving','Teamwork','Delivery','Customer Appreciation','Safety','Standardization']},
       {k:'situation',label:'S — Situation',type:'textarea',full:true,req:true},
       {k:'task',label:'T — Task',type:'textarea',full:true,req:true},
@@ -350,55 +364,40 @@ const CATEGORIES = {
       {k:'result',label:'R — Result',type:'textarea',full:true,req:true},
       {k:'involved',label:'Team / Individual Involved',type:'text'}
     ]},
-  costsaving:{ name:'Cost Saving', icon:'💰', color:'#c27803',
-    desc:'Log cost-reduction initiatives (STAR) with before/after costs and savings.',
-    tableCols:['srno','date','project','difference','resultSaving'],
+  presale:{ name:'Cost Saving', icon:'💰', color:'#c27803',
+    desc:'Presale vs actual cost comparison with auto-calculated savings.',
+    tableCols:['srno','projectName','partName','actualSaving','savingType'],
     fields:[
       {k:'srno',label:'Sr. No.',type:'serial'},
-      {k:'date',label:'Date',type:'date',req:true},
-      {k:'project',label:'Dept. / Project Name',type:'text',req:true},
-      {k:'person',label:'Person Name',type:'text'},
-      {k:'situation',label:'S — Situation',type:'textarea',full:true,req:true},
-      {k:'task',label:'T — Task',type:'textarea',full:true},
-      {k:'action',label:'A — Action',type:'textarea',full:true},
-      {k:'result',label:'R — Result',type:'textarea',full:true},
-      {k:'costBefore',label:'Cost Before (₹)',type:'money'},
-      {k:'costAfter',label:'Cost After (₹)',type:'money'},
-      {k:'difference',label:'Difference in Cost (₹)',type:'calc',diff:['costBefore','costAfter'],money:true},
-      {k:'resultSaving',label:'Result in Savings (₹)',type:'money'},
-      {k:'potentialSaving',label:'Potential Saving (₹)',type:'money'},
-      {k:'comments',label:'Comments',type:'textarea',full:true},
-      {k:'approvedBy',label:'Approved By',type:'text'},
-      {k:'managerRemark',label:'Manager\'s Remark',type:'textarea',full:true}
-    ]},
-  presale:{ name:'Presales vs Indenting', icon:'📊', color:'#2563eb',
-    desc:'Compare presales estimates vs actual indenting/purchase, with variance & savings.',
-    tableCols:['srno','projectCode','partName','qtyVariance','actualSaving'],
-    fields:[
-      {k:'srno',label:'Sr. No.',type:'serial'},
-      {k:'projectCode',label:'Project Code',type:'text',req:true},
+      // Primary
+      {k:'projectName',label:'Project Name',type:'text',req:true},
       {k:'designerName',label:'Designer Name',type:'text'},
       {k:'partName',label:'Part Name',type:'text',req:true},
-      {k:'partCode',label:'Part Code',type:'text'},
-      {k:'partDesc',label:'Part Description',type:'textarea',full:true},
-      {k:'unitCost',label:'Unit Cost (₹)',type:'money'},
-      {k:'presalesQty',label:'Presales Qty',type:'number'},
-      {k:'presalesCost',label:'Presales Cost (₹)',type:'money'},
-      {k:'indentFor',label:'Indent For',type:'text'},
-      {k:'revisedPartCode',label:'Revised Part Code Ordered',type:'text'},
-      {k:'indentingQty',label:'Indenting Qty',type:'number'},
-      {k:'purchaseQty',label:'Purchase Qty',type:'number'},
-      {k:'purchaseRate',label:'Purchase Rate (₹)',type:'money'},
-      {k:'purchaseValue',label:'Purchase Value (₹)',type:'money'},
-      {k:'totalQty',label:'Total Qty',type:'number'},
-      {k:'totalValue',label:'Total Value (₹)',type:'money'},
-      {k:'qtyVariance',label:'Qty Variance (Indented vs Presales)',type:'number'},
-      {k:'actualSaving',label:'Price Variance / Actual Saving (₹)',type:'money'},
-      {k:'situation',label:'S — Situation',type:'textarea',full:true},
-      {k:'task',label:'T — Task',type:'textarea',full:true},
-      {k:'action',label:'A — Action',type:'textarea',full:true},
-      {k:'result',label:'R — Result',type:'textarea',full:true},
-      {k:'potentialSaving',label:'Potential Saving (₹)',type:'money'}
+      // Presale Consideration
+      {k:'sec_presale',label:'Presale Consideration',type:'section'},
+      {k:'psPart',label:'Part',type:'text'},
+      {k:'psMake',label:'Make',type:'text'},
+      {k:'psPartCode',label:'Part Code',type:'text'},
+      {k:'psQty',label:'Qty',type:'number'},
+      {k:'psUnitCost',label:'Unit Cost (₹)',type:'money'},
+      {k:'psTotalCost',label:'Total Cost (₹)',type:'calc',mul:['psQty','psUnitCost'],money:true},
+      // Actual Consideration
+      {k:'sec_actual',label:'Actual Consideration',type:'section'},
+      {k:'acMake',label:'Make',type:'text'},
+      {k:'acPartCode',label:'Part Code',type:'text'},
+      {k:'acQty',label:'Qty',type:'number'},
+      {k:'acUnitCost',label:'Unit Cost (₹)',type:'money'},
+      {k:'acTotalCost',label:'Total Cost (₹)',type:'calc',mul:['acQty','acUnitCost'],money:true},
+      {k:'indentNumber',label:'Indent Number',type:'text'},
+      // Saving
+      {k:'sec_saving',label:'Saving',type:'section'},
+      {k:'actualSaving',label:'Total Saving (₹)',type:'calc',diff:['psTotalCost','acTotalCost'],money:true},
+      {k:'savingType',label:'Saving Type',type:'select',options:['Potential Saving','Actual Saving']},
+      // STAR
+      {k:'situation',label:'S — Situation',type:'textarea',full:true,req:true},
+      {k:'task',label:'T — Task',type:'textarea',full:true,req:true},
+      {k:'action',label:'A — Action',type:'textarea',full:true,req:true},
+      {k:'result',label:'R — Result',type:'textarea',full:true,req:true}
     ]},
   changenote:{ name:'Change Notes', icon:'📝', color:'#7c3aed',
     desc:'Track engineering change notes with reason, approval and document link.',
@@ -409,9 +408,9 @@ const CATEGORIES = {
       {k:'dept',label:'Dept.',type:'text',req:true},
       {k:'changeNoteNo',label:'Change Note Number',type:'text',req:true},
       {k:'reasonBrief',label:'Reason & Change in Brief',type:'textarea',full:true,req:true},
+      {k:'costEffect',label:'Cost Effect (₹)',type:'money'},
       {k:'preparedBy',label:'Prepared By',type:'text'},
       {k:'cnApprovedBy',label:'CN Approved By',type:'text'},
-      {k:'Cost Effect',label:'Cost Effect',type:'text'},
       {k:'link',label:'Hyperlink for Change Note',type:'link',full:true}
     ]}
 };
@@ -457,6 +456,7 @@ function openCat(k){
   const c = CATEGORIES[k];
   $('#catTitle').textContent = c.icon+'  '+c.name;
   $('#formFields').innerHTML = c.fields.map(f=>{
+    if(f.type==='section') return `<div class="fld full form-section">${f.label}</div>`;
     const id = 'f_'+f.k;
     const req = f.req? '<span class="req"> *</span>':'';
     let input;
@@ -507,9 +507,9 @@ function recalc(){
 
 function clearForm(){
   CATEGORIES[current].fields.forEach(f=>{
-    const el=$('#f_'+f.k);
+    if(f.type==='section') return;
+    const el=$('#f_'+f.k); if(!el) return;
     if(f.type==='date'&&f.req) el.value=new Date().toISOString().slice(0,10);
-    else if(f.type==='calc'||f.type==='month'||f.type==='serial') el.value='';
     else el.value='';
   });
   recalc();
@@ -519,14 +519,16 @@ function clearForm(){
 /* ---------------- preview ---------------- */
 function collectForm(){
   recalc();
-  const c=CATEGORIES[current], rec={category:current};
+  const c=CATEGORIES[current], rec={};
   for(const f of c.fields){
+    if(f.type==='section'){ continue; }           // visual only, no data
     if(f.type==='serial'){ continue; }            // assigned at save
     if(f.type==='calc'){ rec[f.k]=$('#f_'+f.k).dataset.raw||0; continue; }
     const el=$('#f_'+f.k); const v=(el.value||'').trim();
     if(f.req && !v){ toast('Missing: '+f.label); return null; }
     rec[f.k]=v;
   }
+  rec.category=current;   // set LAST so no field key can overwrite the record type
   return rec;
 }
 /* format a field's value for display (preview, modal) */
@@ -540,7 +542,7 @@ function dispVal(f, rec){
 function buildPreview(){
   const rec=collectForm(); if(!rec) return;
   const c=CATEGORIES[current];
-  $('#previewGrid').innerHTML=c.fields.map(f=>
+  $('#previewGrid').innerHTML=c.fields.filter(f=>f.type!=='section').map(f=>
     `<div class="pv-item"><span class="k">${f.label}</span><span class="v">${dispVal(f,rec)}</span></div>`
   ).join('');
   $('#previewBox').style.display='block';
@@ -604,7 +606,7 @@ async function inspect(id){
   const r=recs.find(x=>x.id===id); if(!r) return;
   modalId=id;
   const c=CATEGORIES[current];
-  $('#modalGrid').innerHTML=c.fields.map(f=>
+  $('#modalGrid').innerHTML=c.fields.filter(f=>f.type!=='section').map(f=>
     `<div class="pv-item"><span class="k">${f.label}</span><span class="v">${dispVal(f,r)}</span></div>`
   ).join('') + `<div class="pv-item full" style="grid-column:1/-1"><span class="k">Saved</span><span class="v">${new Date(r.created_at).toLocaleString('en-IN')}</span></div>`;
   $('#modalBg').classList.add('show');
@@ -617,8 +619,9 @@ async function del(id){ if(confirm('Delete this record?')){ await DB.remove(id);
 async function exportRows(){
   const c=CATEGORIES[current];
   const recs=await DB.list(current);
-  const headers=c.fields.map(f=>f.label).concat('Saved At');
-  const rows=recs.map(r=>c.fields.map(f=>
+  const cols=c.fields.filter(f=>f.type!=='section');
+  const headers=cols.map(f=>f.label).concat('Saved At');
+  const rows=recs.map(r=>cols.map(f=>
     (f.type==='money'||f.type==='calc')? (r[f.k]?Number(r[f.k]):'') : (r[f.k]??'')
   ).concat(new Date(r.created_at).toLocaleString('en-IN')));
   return {headers,rows,name:c.name};
@@ -648,11 +651,24 @@ async function exportPDF(){
 
 /* ---------------- statistics ---------------- */
 let charts={};
+
+// group helper: returns {labels[], values[]} summing/counting `valFn` by `keyFn`
+function groupBy(rows, keyFn, valFn){
+  const m={};
+  rows.forEach(r=>{ const k=keyFn(r)||'—'; m[k]=(m[k]||0)+valFn(r); });
+  const labels=Object.keys(m).sort();
+  return { labels, values: labels.map(l=>m[l]) };
+}
+
 async function renderStats(){
   const all=await DB.list();
-  // stat cards
-  const totalCopq=all.filter(r=>r.category==='copq').reduce((s,r)=>s+(+r.totalCost||0),0);
-  const totalSave=all.filter(r=>r.category==='costsaving').reduce((s,r)=>s+(+r.resultSaving||0),0);
+  const copq=all.filter(r=>r.category==='copq');
+  const save=all.filter(r=>r.category==='presale');
+  const cn=all.filter(r=>r.category==='changenote');
+  const gp=all.filter(r=>r.category==='goodpractice');
+
+  const totalCopq=copq.reduce((s,r)=>s+(+r.totalCost||0),0);
+  const totalSave=save.reduce((s,r)=>s+(+r.actualSaving||0),0);
   $('#statCards').innerHTML=`
     <div class="stat"><div class="n">${all.length}</div><div class="l">Total Records</div></div>
     <div class="stat"><div class="n" style="color:var(--warn)">${fmtMoney(totalCopq)}</div><div class="l">Total Cost of Poor Quality</div></div>
@@ -660,8 +676,10 @@ async function renderStats(){
     <div class="stat"><div class="n" style="color:var(--accent)">${fmtMoney(totalSave-totalCopq)}</div><div class="l">Net (Saving − COPQ)</div></div>`;
 
   Object.values(charts).forEach(c=>c&&c.destroy());
+  const bar=(canvas,labels,values,color)=>new Chart($(canvas),{type:'bar',
+    data:{labels,datasets:[{data:values,backgroundColor:color,borderRadius:6}]},options:chartOpts()});
 
-  // records by category
+  // 1) entries per category
   const catLabels=Object.values(CATEGORIES).map(c=>c.name);
   const catData=Object.keys(CATEGORIES).map(k=>all.filter(r=>r.category===k).length);
   const catColors=Object.values(CATEGORIES).map(c=>c.color);
@@ -669,25 +687,66 @@ async function renderStats(){
     data:{labels:catLabels,datasets:[{data:catData,backgroundColor:catColors,borderRadius:6}]},
     options:chartOpts(true)});
 
-  // COPQ by type
-  const copq=all.filter(r=>r.category==='copq');
-  const types={}; copq.forEach(r=>{const t=r.failureType||'Unspecified'; types[t]=(types[t]||0)+(+r.totalCost||0);});
-  charts.copq=new Chart($('#chartCopq'),{type:'bar',
-    data:{labels:Object.keys(types),datasets:[{data:Object.values(types),backgroundColor:'#ff6b6b',borderRadius:6}]},
-    options:chartOpts()});
+  // 2) Cost Saving: project name -> total saving
+  const g2=groupBy(save, r=>r.projectName, r=>+r.actualSaving||0);
+  charts.save=bar('#chartSave', g2.labels, g2.values, '#c27803');
 
-  // saving by month
-  const save=all.filter(r=>r.category==='costsaving');
-  const months={}; save.forEach(r=>{const m=(r.date||'').slice(0,7)||'—'; months[m]=(months[m]||0)+(+r.resultSaving||0);});
-  const mk=Object.keys(months).sort();
-  charts.save=new Chart($('#chartSave'),{type:'bar',
-    data:{labels:mk,datasets:[{data:mk.map(m=>months[m]),backgroundColor:'#f5c451',borderRadius:6}]},
-    options:chartOpts()});
+  // 3) COPQ: supplier name -> total cost
+  const g3=groupBy(copq, r=>r.supplierName, r=>+r.totalCost||0);
+  charts.copq=bar('#chartCopq', g3.labels, g3.values, '#ff6b6b');
+
+  // 4) Change Notes: project code -> count
+  const g4=groupBy(cn, r=>r.projectCode, ()=>1);
+  charts.cn=bar('#chartCN', g4.labels, g4.values, '#7c3aed');
+
+  // 5) Good Practices: designer name -> count
+  const g5=groupBy(gp, r=>r.designerName, ()=>1);
+  charts.gp=bar('#chartGP', g5.labels, g5.values, '#0e9f6e');
 }
 function chartOpts(){
-  return {responsive:true,plugins:{legend:{display:false}},
+  return {responsive:true,animation:false,plugins:{legend:{display:false}},
     scales:{x:{ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}},
             y:{ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}}}};
+}
+
+/* ---------------- stats PDF export ---------------- */
+async function exportStatsPDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const pw=doc.internal.pageSize.getWidth();
+  let y=14;
+  doc.setFontSize(16); doc.setTextColor(20,30,55);
+  doc.text('Quality Command Centre — Statistics',14,y); y+=7;
+  doc.setFontSize(9); doc.setTextColor(120);
+  doc.text('Generated: '+new Date().toLocaleString('en-IN'),14,y); y+=8;
+
+  // summary cards as a small table
+  const all=await DB.list();
+  const totalCopq=all.filter(r=>r.category==='copq').reduce((s,r)=>s+(+r.totalCost||0),0);
+  const totalSave=all.filter(r=>r.category==='presale').reduce((s,r)=>s+(+r.actualSaving||0),0);
+  doc.autoTable({
+    startY:y,
+    head:[['Total Records','Total COPQ (₹)','Total Cost Saving (₹)','Net (₹)']],
+    body:[[all.length, totalCopq.toLocaleString('en-IN'), totalSave.toLocaleString('en-IN'), (totalSave-totalCopq).toLocaleString('en-IN')]],
+    styles:{fontSize:9,halign:'center'},
+    headStyles:{fillColor:[14,159,110],textColor:255}
+  });
+  y=doc.lastAutoTable.finalY+6;
+
+  // each chart as an image, two per row
+  const ids=['#chartCat','#chartSave','#chartCopq','#chartCN','#chartGP'];
+  const titles=['Entries per Category','Cost Saving — Project vs Saving','COPQ — Supplier vs Cost','Change Notes — Count per Project','Good Practices — Count per Designer'];
+  const imgW=pw-28, imgH=58;
+  for(let i=0;i<ids.length;i++){
+    const cv=document.querySelector(ids[i]); if(!cv) continue;
+    if(y+imgH+8 > doc.internal.pageSize.getHeight()-10){ doc.addPage(); y=14; }
+    doc.setFontSize(11); doc.setTextColor(20,30,55);
+    doc.text(titles[i],14,y); y+=4;
+    const img=cv.toDataURL('image/png',1.0);
+    doc.addImage(img,'PNG',14,y,imgW,imgH); y+=imgH+8;
+  }
+  doc.save('QCC_Statistics_'+new Date().toISOString().slice(0,10)+'.pdf');
+  toast('Statistics PDF exported');
 }
 
 /* ---------------- init ---------------- */
