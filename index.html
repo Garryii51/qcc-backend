@@ -132,7 +132,7 @@
 <header>
   <div>
     <h1>Quality <span>Command Centre</span></h1>
-    <div class="sub">Records Hub · multi-category capture, analytics & reporting</div>
+    <div class="sub">Records Hub · multi-category data capture, analytics & reporting</div>
   </div>
   <nav class="nav">
     <button id="nav-home" class="active" onclick="go('home')">Categories</button>
@@ -371,7 +371,7 @@ const CATEGORIES = {
       {k:'approvedBy',label:'Approved By',type:'text'},
       {k:'managerRemark',label:'Manager\'s Remark',type:'textarea',full:true}
     ]},
-  presale:{ name:'Presale vs Indenting', icon:'📊', color:'#2563eb',
+  presale:{ name:'Presales vs Indenting', icon:'📊', color:'#2563eb',
     desc:'Compare presales estimates vs actual indenting/purchase, with variance & savings.',
     tableCols:['srno','projectCode','partName','qtyVariance','actualSaving'],
     fields:[
@@ -411,6 +411,7 @@ const CATEGORIES = {
       {k:'reasonBrief',label:'Reason & Change in Brief',type:'textarea',full:true,req:true},
       {k:'preparedBy',label:'Prepared By',type:'text'},
       {k:'cnApprovedBy',label:'CN Approved By',type:'text'},
+      {k:'Cost Effect',label:'Cost Effect',type:'text'},
       {k:'link',label:'Hyperlink for Change Note',type:'link',full:true}
     ]}
 };
