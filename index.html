@@ -129,23 +129,209 @@
     transition:.3s;pointer-events:none;box-shadow:0 8px 24px rgba(14,159,110,.35)}
   .toast.show{opacity:1;transform:none}
   .badge{padding:3px 9px;border-radius:20px;font-size:.72rem;font-family:var(--mono)}
+  /* ---- electrical login background ---- */
+  #loginScreen .bg-electrical{position:absolute;inset:0;z-index:0;pointer-events:none}
+  #loginScreen .bg-electrical svg{width:100%;height:100%}
+  #loginScreen .bg-wash{position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(ellipse 44% 48% at 50% 47%, rgba(238,242,251,.55), rgba(238,242,251,.10) 72%)}
+  #loginScreen .login-wrap{position:relative;z-index:2;width:100%;max-width:400px;padding:24px;text-align:center}
+  #loginScreen .brand-logo{width:96px;height:auto;margin:0 auto 14px;display:block;filter:drop-shadow(0 6px 14px rgba(20,30,55,.12))}
+  #loginScreen .login-card{background:rgba(255,255,255,.88);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.9);border-radius:18px;box-shadow:0 20px 60px rgba(20,40,90,.16),0 2px 8px rgba(20,40,90,.06);padding:34px 32px}
+  #loginScreen .login-foot{margin-top:18px;color:var(--ink-dim);font-size:.72rem;font-family:var(--mono);letter-spacing:.3px}
+  @keyframes flow{to{stroke-dashoffset:-40}}
+  .wire-live{stroke-dasharray:6 8;animation:flow 2.4s linear infinite}
+  @keyframes pulse{0%,100%{r:4;opacity:.55}50%{r:7;opacity:1}}
+  #loginScreen .node{animation:pulse 2.2s ease-in-out infinite}
+  @keyframes travel-g{0%{offset-distance:0%;opacity:0}10%{opacity:1}90%{opacity:1}100%{offset-distance:100%;opacity:0}}
+  @keyframes travel-b{0%{offset-distance:0%;opacity:0}10%{opacity:1}90%{opacity:1}100%{offset-distance:100%;opacity:0}}
+  @keyframes travel-a{0%{offset-distance:0%;opacity:0}10%{opacity:1}90%{opacity:1}100%{offset-distance:100%;opacity:0}}
+  #loginScreen .spark{r:5}
+  #loginScreen .spark-g{offset-path:path('M320 252 H560 Q580 252 580 272 V360 H760');animation:travel-g 3.2s linear infinite}
+  #loginScreen .spark-b{offset-path:path('M320 272 H520 Q540 272 540 300 V520 H720');animation:travel-b 3.8s linear infinite .6s}
+  #loginScreen .spark-a{offset-path:path('M320 232 H600 Q620 232 620 210 V150 H860');animation:travel-a 3.5s linear infinite 1.2s}
+  @keyframes sweep{0%{opacity:.15}50%{opacity:.45}100%{opacity:.15}}
+  #loginScreen .meter-needle{transform-box:fill-box;transform-origin:bottom center;animation:swing 4s ease-in-out infinite}
+  @keyframes swing{0%,100%{transform:rotate(-32deg)}50%{transform:rotate(34deg)}}
+  /* faint electrical layer behind the app after login */
+  body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%232563eb' stroke-width='1.5'%3E%3Cpath d='M0 60H80Q100 60 100 80V140H180'/%3E%3Cpath d='M0 120H60Q80 120 80 100V40H160'/%3E%3Ccircle cx='100' cy='80' r='3' fill='%232563eb'/%3E%3Ccircle cx='80' cy='100' r='3' fill='%232563eb'/%3E%3Crect x='150' y='30' width='30' height='18' rx='2'/%3E%3Cpolyline points='180,140 188,140 192,132 200,148 208,132 216,148 220,140 240,140'/%3E%3C/g%3E%3C/svg%3E")}
 </style>
 </head>
 <body>
 
 <!-- LOGIN overlay -->
-<div id="loginScreen" style="position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:var(--bg);background-image:radial-gradient(circle at 12% 0%,#e7eefc 0,transparent 45%),radial-gradient(circle at 90% 8%,#e3f5ec 0,transparent 42%)">
-  <div style="background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:36px 34px;width:100%;max-width:380px;text-align:center">
-    <h1 style="font-size:1.3rem;font-weight:700;margin-bottom:4px">Quality <span style="color:var(--accent)">Command Centre</span></h1>
-    <p style="color:var(--ink-dim);font-size:.84rem;margin-bottom:24px">Sign in to continue</p>
-    <input id="loginEmail" type="email" placeholder="Email" autocomplete="username"
-      style="width:100%;background:#fff;border:1px solid var(--line);color:var(--ink);padding:12px 14px;border-radius:9px;font-size:.95rem;margin-bottom:12px">
-    <input id="loginPw" type="password" placeholder="Password" autocomplete="current-password"
-      onkeydown="if(event.key==='Enter')doLogin()"
-      style="width:100%;background:#fff;border:1px solid var(--line);color:var(--ink);padding:12px 14px;border-radius:9px;font-size:.95rem;margin-bottom:14px">
-    <div id="loginErr" style="color:var(--warn);font-size:.82rem;min-height:18px;margin-bottom:10px"></div>
-    <button onclick="doLogin()" id="loginBtn"
-      style="width:100%;background:var(--accent);color:#fff;border:none;padding:12px;border-radius:10px;font-weight:600;font-size:.92rem;cursor:pointer">Sign In</button>
+<div id="loginScreen" style="position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:#eef2fb;overflow:hidden">
+  <div class="bg-electrical">
+    <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="elgrid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M40 0H0V40" fill="none" stroke="#b9c8e4" stroke-width="1.2" opacity=".16"/>
+        </pattern>
+        <linearGradient id="elbus" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#9db4d8"/><stop offset="1" stop-color="#7c97c4"/>
+        </linearGradient>
+      </defs>
+      <rect width="1440" height="900" fill="url(#elgrid)"/>
+      <g stroke="#5f7cab" stroke-width="2.4" fill="none" opacity="1">
+        <rect x="70" y="120" width="300" height="520" rx="10" fill="#ffffff" fill-opacity=".25"/>
+        <rect x="92" y="150" width="256" height="60" rx="5"/>
+        <rect x="120" y="162" width="60" height="36" rx="4" fill="#9db4d8" fill-opacity=".4"/>
+        <text x="150" y="186" font-family="monospace" font-size="14" fill="#5b7099" text-anchor="middle">MCB</text>
+        <line x1="120" y1="232" x2="320" y2="232" stroke="url(#elbus)" stroke-width="6"/>
+        <line x1="120" y1="252" x2="320" y2="252" stroke="url(#elbus)" stroke-width="6"/>
+        <line x1="120" y1="272" x2="320" y2="272" stroke="url(#elbus)" stroke-width="6"/>
+        <g>
+          <rect x="110" y="300" width="44" height="28" rx="3"/><rect x="160" y="300" width="44" height="28" rx="3"/>
+          <rect x="210" y="300" width="44" height="28" rx="3"/><rect x="260" y="300" width="44" height="28" rx="3"/>
+          <rect x="110" y="340" width="44" height="28" rx="3"/><rect x="160" y="340" width="44" height="28" rx="3"/>
+          <rect x="210" y="340" width="44" height="28" rx="3"/><rect x="260" y="340" width="44" height="28" rx="3"/>
+          <rect x="110" y="380" width="44" height="28" rx="3"/><rect x="160" y="380" width="44" height="28" rx="3"/>
+          <rect x="210" y="380" width="44" height="28" rx="3"/><rect x="260" y="380" width="44" height="28" rx="3"/>
+        </g>
+        <rect x="110" y="430" width="194" height="40" rx="4"/>
+        <g stroke-width="2">
+          <line x1="130" y1="430" x2="130" y2="470"/><line x1="150" y1="430" x2="150" y2="470"/>
+          <line x1="170" y1="430" x2="170" y2="470"/><line x1="190" y1="430" x2="190" y2="470"/>
+          <line x1="210" y1="430" x2="210" y2="470"/><line x1="230" y1="430" x2="230" y2="470"/>
+          <line x1="250" y1="430" x2="250" y2="470"/><line x1="270" y1="430" x2="270" y2="470"/>
+        </g>
+      </g>
+      <g fill="none" opacity=".9">
+        <path d="M320 252 H560 Q580 252 580 272 V360 H760" stroke="#0e9f6e" stroke-width="3.5" class="wire-live"/>
+        <path d="M320 272 H520 Q540 272 540 300 V520 H720" stroke="#2563eb" stroke-width="3.5" class="wire-live"/>
+        <path d="M320 232 H600 Q620 232 620 210 V150 H860" stroke="#c27803" stroke-width="3.5" class="wire-live"/>
+      </g>
+      <g stroke="#5f7cab" stroke-width="2.4" fill="none" opacity=".95">
+        <circle cx="900" cy="150" r="34"/>
+        <text x="900" y="158" font-family="monospace" font-size="22" fill="#5b7099" text-anchor="middle">M</text>
+        <polyline points="760,360 775,360 782,348 796,372 810,348 824,372 838,348 845,360 880,360"/>
+        <g transform="translate(720,520)">
+          <line x1="0" y1="0" x2="40" y2="0"/><line x1="40" y1="-16" x2="40" y2="16"/>
+          <line x1="54" y1="-16" x2="54" y2="16"/><line x1="54" y1="0" x2="94" y2="0"/>
+        </g>
+        <g transform="translate(900,560)" stroke-width="2.5">
+          <line x1="0" y1="-30" x2="0" y2="0"/><line x1="-22" y1="0" x2="22" y2="0"/>
+          <line x1="-14" y1="10" x2="14" y2="10"/><line x1="-7" y1="20" x2="7" y2="20"/>
+        </g>
+        <g transform="translate(1080,300)">
+          <path d="M0 0 a12 12 0 0 1 24 0 a12 12 0 0 1 24 0 a12 12 0 0 1 24 0"/>
+          <line x1="0" y1="26" x2="72" y2="26"/>
+          <path d="M0 58 a12 12 0 0 0 24 0 a12 12 0 0 0 24 0 a12 12 0 0 0 24 0"/>
+        </g>
+        <circle cx="580" cy="272" r="4" fill="#2563eb" stroke="none" opacity=".8" class="node"/>
+        <circle cx="620" cy="210" r="4" fill="#c27803" stroke="none" opacity=".8" class="node" style="animation-delay:.7s"/>
+        <circle cx="540" cy="300" r="4" fill="#2563eb" stroke="none" opacity=".8" class="node" style="animation-delay:1.3s"/>
+      </g>
+      <!-- analog voltage meter -->
+      <g transform="translate(1120,560)" stroke="#5f7cab" stroke-width="2" fill="none" opacity=".7">
+        <rect x="-50" y="-44" width="100" height="78" rx="8" fill="#ffffff" fill-opacity=".35"/>
+        <path d="M-34 8 A38 38 0 0 1 34 8" />
+        <line x1="-34" y1="8" x2="-30" y2="2"/><line x1="0" y1="-30" x2="0" y2="-24"/><line x1="34" y1="8" x2="30" y2="2"/>
+        <line class="meter-needle" x1="0" y1="8" x2="0" y2="-26" stroke="#0e9f6e" stroke-width="2.5"/>
+        <circle cx="0" cy="8" r="3" fill="#5f7cab" stroke="none"/>
+        <text x="0" y="28" font-family="monospace" font-size="10" fill="#5b7099" text-anchor="middle" stroke="none">VOLTS</text>
+      </g>
+      <!-- traveling current sparks -->
+      <circle class="spark spark-g" fill="#0e9f6e"/>
+      <circle class="spark spark-b" fill="#2563eb"/>
+      <circle class="spark spark-a" fill="#c27803"/>
+
+      <!-- ===== EPLAN-style IEC symbols (faint, tagged) ===== -->
+      <g stroke="#7c93bd" stroke-width="2" fill="none" opacity=".5"
+         font-family="monospace" font-size="12">
+        <!-- MCB single-pole (-Q1) : far left lower -->
+        <g transform="translate(60,720)">
+          <line x1="0" y1="-20" x2="0" y2="-6"/>
+          <line x1="0" y1="-6" x2="14" y2="10"/>            <!-- switch lever -->
+          <path d="M0 10 q-7 6 0 12 q7 6 0 12" />            <!-- thermal hook -->
+          <line x1="0" y1="34" x2="0" y2="48"/>
+          <text x="10" y="2" fill="#5b7099" stroke="none">-Q1</text>
+          <text x="-34" y="-10" fill="#8294b5" stroke="none">L1</text>
+        </g>
+
+        <!-- MCCB 3-pole (-Q2) : lower-left -->
+        <g transform="translate(150,720)">
+          <g>
+            <line x1="0" y1="-18" x2="0" y2="-4"/><line x1="0" y1="-4" x2="12" y2="12"/><line x1="0" y1="28" x2="0" y2="44"/>
+            <line x1="22" y1="-18" x2="22" y2="-4"/><line x1="22" y1="-4" x2="34" y2="12"/><line x1="22" y1="28" x2="22" y2="44"/>
+            <line x1="44" y1="-18" x2="44" y2="-4"/><line x1="44" y1="-4" x2="56" y2="12"/><line x1="44" y1="28" x2="44" y2="44"/>
+          </g>
+          <line x1="6" y1="2" x2="50" y2="2" stroke-dasharray="3 3"/>   <!-- ganged -->
+          <text x="60" y="6" fill="#5b7099" stroke="none">-Q2</text>
+          <text x="0" y="-26" fill="#8294b5" stroke="none">3~ MCCB</text>
+        </g>
+
+        <!-- Fuse (-F1) : top-left -->
+        <g transform="translate(70,70)">
+          <line x1="0" y1="-16" x2="0" y2="0"/>
+          <rect x="-9" y="0" width="18" height="34" rx="2"/>
+          <line x1="0" y1="0" x2="0" y2="34"/>
+          <line x1="0" y1="34" x2="0" y2="50"/>
+          <text x="14" y="20" fill="#5b7099" stroke="none">-F1</text>
+        </g>
+
+        <!-- Switch-disconnector / isolator (-Q3) : top center-left -->
+        <g transform="translate(440,70)">
+          <circle cx="0" cy="0" r="3" fill="#7c93bd"/>
+          <line x1="0" y1="0" x2="22" y2="-14"/>
+          <circle cx="26" cy="0" r="3" fill="#7c93bd"/>
+          <line x1="-16" y1="0" x2="0" y2="0"/><line x1="26" y1="0" x2="42" y2="0"/>
+          <line x1="22" y1="-14" x2="22" y2="-22" stroke-dasharray="3 3"/>
+          <text x="-6" y="24" fill="#5b7099" stroke="none">-Q3</text>
+        </g>
+
+        <!-- Contactor coil + NO contacts (-K1) : right side -->
+        <g transform="translate(1180,150)">
+          <rect x="0" y="0" width="40" height="26" rx="2"/>
+          <line x1="-16" y1="13" x2="0" y2="13"/><line x1="40" y1="13" x2="56" y2="13"/>
+          <text x="6" y="18" fill="#5b7099" stroke="none">K1</text>
+          <text x="-6" y="-8" fill="#8294b5" stroke="none">-K1  A1/A2</text>
+          <!-- NO contact below -->
+          <g transform="translate(8,46)">
+            <circle cx="0" cy="0" r="3" fill="#7c93bd"/><line x1="0" y1="0" x2="20" y2="-12"/>
+            <circle cx="24" cy="0" r="3" fill="#7c93bd"/>
+            <text x="30" y="4" fill="#8294b5" stroke="none">13/14</text>
+          </g>
+        </g>
+
+        <!-- Power transformer (-T1) : right lower, two windings + core -->
+        <g transform="translate(1130,360)">
+          <path d="M0 0 a10 10 0 0 1 0 20 a10 10 0 0 1 0 20 a10 10 0 0 1 0 20"/>
+          <line x1="16" y1="-4" x2="16" y2="64"/><line x1="20" y1="-4" x2="20" y2="64"/>  <!-- core -->
+          <path d="M36 0 a10 10 0 0 0 0 20 a10 10 0 0 0 0 20 a10 10 0 0 0 0 20"/>
+          <text x="46" y="34" fill="#5b7099" stroke="none">-T1</text>
+          <text x="-12" y="-10" fill="#8294b5" stroke="none">400/230V</text>
+        </g>
+
+        <!-- wire-number tags on existing runs -->
+        <text x="470" y="246" fill="#8294b5" stroke="none" opacity=".8">W1</text>
+        <text x="430" y="266" fill="#8294b5" stroke="none" opacity=".8">W2</text>
+        <text x="660" y="204" fill="#8294b5" stroke="none" opacity=".8">W3</text>
+      </g>
+
+      <g stroke="#a9b8d6" stroke-width="1" opacity=".5" font-family="monospace" font-size="11" fill="#8294b5">
+        <line x1="500" y1="720" x2="780" y2="720"/>
+        <line x1="500" y1="715" x2="500" y2="725"/><line x1="780" y1="715" x2="780" y2="725"/>
+        <text x="640" y="738" text-anchor="middle">DISTRIBUTION PANEL · DB-01</text>
+      </g>
+    </svg>
+  </div>
+  <div class="bg-wash"></div>
+  <div class="login-wrap">
+    <div class="login-card">
+      <img class="brand-logo" src="data:image/jpeg;base64,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" alt="Armstrong Dematic">
+      <h1 style="font-size:1.3rem;font-weight:700;margin-bottom:4px">Quality <span style="color:var(--accent)">Command Centre</span></h1>
+      <p style="color:var(--ink-dim);font-size:.8rem;margin-bottom:22px;font-family:var(--mono)">Electrical Design · Sign in to continue</p>
+      <input id="loginEmail" type="email" placeholder="Email" autocomplete="username"
+        style="width:100%;background:#fff;border:1px solid var(--line);color:var(--ink);padding:12px 14px;border-radius:10px;font-size:.95rem;margin-bottom:12px">
+      <input id="loginPw" type="password" placeholder="Password" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()"
+        style="width:100%;background:#fff;border:1px solid var(--line);color:var(--ink);padding:12px 14px;border-radius:10px;font-size:.95rem;margin-bottom:14px">
+      <div id="loginErr" style="color:var(--warn);font-size:.82rem;min-height:18px;margin-bottom:10px"></div>
+      <button onclick="doLogin()" id="loginBtn"
+        style="width:100%;background:var(--accent);color:#fff;border:none;padding:13px;border-radius:11px;font-weight:600;font-size:.92rem;cursor:pointer;box-shadow:0 6px 18px rgba(14,159,110,.32)">Sign In</button>
+      <div class="login-foot">ARMSTRONG DEMATIC · ELECTRICAL DESIGN</div>
+    </div>
   </div>
 </div>
 
@@ -859,4 +1045,4 @@ async function logout(){ await AUTH.logout(); location.reload(); }
 })();
 </script>
 </body>
-</html>
+</html>>
