@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
   :root{
@@ -132,6 +133,22 @@
 </head>
 <body>
 
+<!-- LOGIN overlay -->
+<div id="loginScreen" style="position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:var(--bg);background-image:radial-gradient(circle at 12% 0%,#e7eefc 0,transparent 45%),radial-gradient(circle at 90% 8%,#e3f5ec 0,transparent 42%)">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:36px 34px;width:100%;max-width:380px;text-align:center">
+    <h1 style="font-size:1.3rem;font-weight:700;margin-bottom:4px">Quality <span style="color:var(--accent)">Command Centre</span></h1>
+    <p style="color:var(--ink-dim);font-size:.84rem;margin-bottom:24px">Sign in to continue</p>
+    <input id="loginEmail" type="email" placeholder="Email" autocomplete="username"
+      style="width:100%;background:#fff;border:1px solid var(--line);color:var(--ink);padding:12px 14px;border-radius:9px;font-size:.95rem;margin-bottom:12px">
+    <input id="loginPw" type="password" placeholder="Password" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')doLogin()"
+      style="width:100%;background:#fff;border:1px solid var(--line);color:var(--ink);padding:12px 14px;border-radius:9px;font-size:.95rem;margin-bottom:14px">
+    <div id="loginErr" style="color:var(--warn);font-size:.82rem;min-height:18px;margin-bottom:10px"></div>
+    <button onclick="doLogin()" id="loginBtn"
+      style="width:100%;background:var(--accent);color:#fff;border:none;padding:12px;border-radius:10px;font-weight:600;font-size:.92rem;cursor:pointer">Sign In</button>
+  </div>
+</div>
+
 <header>
   <div>
     <h1>Quality <span>Command Centre</span></h1>
@@ -141,6 +158,8 @@
   <nav class="nav">
     <button id="nav-home" class="active" onclick="go('home')">Categories</button>
     <button id="nav-stats" onclick="go('stats')">Statistics</button>
+    <span id="nav-user" style="display:flex;align-items:center;color:var(--ink-dim);font-size:.8rem;padding:0 6px"></span>
+    <button id="nav-logout" onclick="logout()" style="border-color:var(--warn);color:var(--warn)">Logout</button>
   </nav>
 </header>
 
@@ -158,13 +177,16 @@
       <h2 id="catTitle"></h2>
     </div>
 
-    <div class="card">
+    <div class="card" id="formCard">
       <div class="fields" id="formFields"></div>
       <div class="row-actions">
         <button class="btn btn-primary" onclick="saveRecord()">✓ Submit & Save</button>
         <button class="btn btn-blue" onclick="buildPreview()">Preview</button>
         <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
       </div>
+    </div>
+    <div class="card" id="viewerNotice" style="display:none;color:var(--ink-dim)">
+      👁 You have view-only access. You can browse and export records, but not add or delete them.
     </div>
 
     <div class="preview" id="previewBox" style="display:none">
@@ -229,7 +251,32 @@
    (rec.category, rec.projectCode, ...); this layer maps between
    that flat shape and the DB shape {category, serial_no, data{}}.
    ============================================================ */
-const API_BASE = 'https://qcc-backend.onrender.com';   // ← change to your Render URL, e.g. 'https://qcc-backend.onrender.com'
+const API_BASE = 'https://qcc-backend.onrender.com';   // ← your Render backend URL
+const SUPABASE_URL = 'https://urybsmnawsdampiwauhj.supabase.co';   // ← your Supabase Project URL
+const SUPABASE_ANON_KEY = 'sb_publishable_W63RFuqWCa-7WotwSwbx6w_tLXGFdjW';                 // ← your Supabase anon (public) key
+
+/* ============================================================
+   AUTH — individual accounts via Supabase Auth (email+password).
+   Login is done against Supabase; the JWT is sent to the Flask
+   backend as Authorization: Bearer <token> on every request.
+   ============================================================ */
+let sb = null;
+let CURRENT_USER = null;   // {email, role} after login
+const AUTH = {
+  client(){ if(!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); return sb; },
+  async token(){ const { data } = await this.client().auth.getSession(); return data.session ? data.session.access_token : ''; },
+  async isLoggedIn(){ const { data } = await this.client().auth.getSession(); return !!data.session; },
+  async login(email, password){ const { error } = await this.client().auth.signInWithPassword({ email, password }); if(error) throw error; },
+  async logout(){ await this.client().auth.signOut(); CURRENT_USER=null; },
+  async loadMe(){ const res = await apiFetch(API_BASE + '/api/me'); if(res.ok){ CURRENT_USER = await res.json(); } return CURRENT_USER; },
+  can(action){
+    const r = CURRENT_USER && CURRENT_USER.role;
+    if(action==='add') return r==='admin' || r==='editor';
+    if(action==='delete_any') return r==='admin';
+    if(action==='delete_own') return r==='admin' || r==='editor';
+    return true; // view/export
+  }
+};
 
 /* Free-tier servers (Render) sleep when idle and take ~30-50s to wake.
    apiFetch retries with a longer timeout and shows a "waking up" overlay
@@ -248,19 +295,22 @@ function showWaking(on){
 }
 
 async function apiFetch(url, opts={}, {retries=2, timeoutMs=20000}={}){
+  const tok = await AUTH.token();
+  opts.headers = { ...(opts.headers||{}), 'Authorization': 'Bearer ' + tok };
   for(let attempt=0; attempt<=retries; attempt++){
     const ctrl=new AbortController();
     const t=setTimeout(()=>ctrl.abort(), timeoutMs);
     try{
       const res=await fetch(url, {...opts, signal:ctrl.signal});
       clearTimeout(t);
-      // 502/503/504 = server waking or briefly unavailable -> retry
+      if(res.status===401){ showWaking(false); await AUTH.logout(); showLogin(); throw new Error('unauthorized'); }
       if((res.status===502||res.status===503||res.status===504) && attempt<retries){
         showWaking(true); await new Promise(r=>setTimeout(r, 4000)); continue;
       }
       return res;
     }catch(e){
       clearTimeout(t);
+      if(e.message==='unauthorized') throw e;
       if(attempt<retries){ showWaking(true); await new Promise(r=>setTimeout(r, 4000)); continue; }
       throw e;
     }
@@ -271,6 +321,7 @@ const DB = {
   // DB row {id, category, serial_no, data{...}, created_at} -> flat record
   _flat(row){
     const r = { id: row.id, category: row.category, created_at: row.created_at,
+                owner: row.owner,
                 ...(row.data || {}) };
     if (row.serial_no != null) r.srno = row.serial_no;
     return r;
@@ -464,6 +515,10 @@ function openCat(k){
   current = k;
   const c = CATEGORIES[k];
   $('#catTitle').textContent = c.icon+'  '+c.name;
+  // role gating: only admin/editor see the add form; viewers see a notice
+  const canAdd = AUTH.can('add');
+  $('#formCard').style.display = canAdd ? '' : 'none';
+  $('#viewerNotice').style.display = canAdd ? 'none' : 'block';
   $('#formFields').innerHTML = c.fields.map(f=>{
     if(f.type==='section') return `<div class="fld full form-section">${f.label}</div>`;
     const id = 'f_'+f.k;
@@ -590,20 +645,24 @@ async function renderTable(){
   tbl.innerHTML=`
     <thead><tr>
       ${cols.map(f=>`<th onclick="setSort('${f.k}')">${f.label}${sortKey===f.k?(sortDir>0?' ▲':' ▼'):''}</th>`).join('')}
+      <th onclick="setSort('owner')">Entered By${sortKey==='owner'?(sortDir>0?' ▲':' ▼'):''}</th>
       <th>Actions</th>
     </tr></thead>
     <tbody>
-      ${recs.map(r=>`<tr>
+      ${recs.map(r=>{
+        const canDelete = AUTH.can('delete_any') || (AUTH.can('delete_own') && CURRENT_USER && CURRENT_USER.email===r.owner);
+        return `<tr>
         ${cols.map(f=>{ let cell;
           if(f.type==='money'||(f.type==='calc'&&f.money)) cell=fmtMoney(r[f.k]);
           else if(f.type==='link') cell = r[f.k]? `<a href="${esc(r[f.k])}" target="_blank" rel="noopener" style="color:var(--accent-2)">Open ↗</a>` : '—';
           else { const raw=(r[f.k]==null||r[f.k]==='')?'—':String(r[f.k]); cell=esc(raw.length>50?raw.slice(0,50)+'…':raw); }
           return `<td>${cell}</td>`; }).join('')}
-        <td>
+        <td style="color:var(--ink-dim);font-size:.8rem">${esc(r.owner||'—')}</td>
+        <td style="white-space:nowrap">
           <button class="icon-btn" title="Inspect" onclick="inspect('${r.id}')">🔍</button>
-          <button class="icon-btn" title="Delete" onclick="del('${r.id}')">🗑️</button>
+          ${canDelete? `<button class="icon-btn" title="Delete" onclick="del('${r.id}')">🗑️</button>` : ''}
         </td>
-      </tr>`).join('')}
+      </tr>`;}).join('')}
     </tbody>`;
 }
 function setSort(k){ if(sortKey===k) sortDir*=-1; else {sortKey=k;sortDir=1;} renderTable(); }
@@ -621,8 +680,8 @@ async function inspect(id){
   $('#modalBg').classList.add('show');
 }
 function closeModal(){ $('#modalBg').classList.remove('show'); modalId=null; }
-async function deleteFromModal(){ if(modalId){ await DB.remove(modalId); closeModal(); toast('Record deleted'); renderTable(); } }
-async function del(id){ if(confirm('Delete this record?')){ await DB.remove(id); toast('Record deleted'); renderTable(); } }
+async function deleteFromModal(){ if(modalId){ try{ await DB.remove(modalId); closeModal(); toast('Record deleted'); renderTable(); }catch(e){ toast(e.message&&e.message.includes('403')?'Not allowed — not your record':'Delete failed'); } } }
+async function del(id){ if(confirm('Delete this record?')){ try{ await DB.remove(id); toast('Record deleted'); renderTable(); }catch(e){ toast(e.message&&e.message.includes('403')?'Not allowed — not your record':'Delete failed'); } } }
 
 /* ---------------- exports ---------------- */
 async function exportRows(){
@@ -758,8 +817,46 @@ async function exportStatsPDF(){
   toast('Statistics PDF exported');
 }
 
+/* ---------------- login control ---------------- */
+function showLogin(){ const s=document.getElementById('loginScreen'); if(s) s.style.display='flex'; const e=document.getElementById('loginEmail'); if(e) e.focus(); }
+function hideLogin(){ const s=document.getElementById('loginScreen'); if(s) s.style.display='none'; }
+
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pw=document.getElementById('loginPw').value;
+  const err=document.getElementById('loginErr');
+  const btn=document.getElementById('loginBtn');
+  err.textContent=''; btn.textContent='Signing in…'; btn.disabled=true;
+  try{
+    await AUTH.login(email, pw);
+    await AUTH.loadMe();
+    document.getElementById('nav-user').textContent = CURRENT_USER.email + ' · ' + CURRENT_USER.role;
+    hideLogin();
+    renderCatGrid();
+  }catch(e){
+    err.textContent = (e && e.message && /invalid|credential/i.test(e.message)) ? 'Incorrect email or password.' : 'Sign-in failed. Check connection and try again.';
+  }finally{
+    btn.textContent='Sign In'; btn.disabled=false;
+  }
+}
+
+async function logout(){ await AUTH.logout(); location.reload(); }
+
 /* ---------------- init ---------------- */
-renderCatGrid();
+(async function init(){
+  try{
+    if(await AUTH.isLoggedIn()){
+      await AUTH.loadMe();
+      if(CURRENT_USER){
+        document.getElementById('nav-user').textContent = CURRENT_USER.email + ' · ' + CURRENT_USER.role;
+        hideLogin();
+        renderCatGrid();
+        return;
+      }
+    }
+  }catch(e){ /* fall through to login */ }
+  showLogin();
+})();
 </script>
 </body>
 </html>
