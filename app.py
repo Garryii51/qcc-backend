@@ -1,34 +1,39 @@
 """
-Quality Command Centre — Flask backend
-----------------------------------------
-Holds the Supabase SERVICE-ROLE key server-side. The browser never sees it.
-Exposes a small REST API the single-file HTML app calls with fetch().
+Quality Command Centre — Flask backend  (LOGIN + ROLES: admin / editor / viewer)
+---------------------------------------------------------------------------------
+Identity: the front-end logs into Supabase Auth (email+password) and sends the
+returned JWT as  Authorization: Bearer <token>  on every request. This backend
+verifies the token via Supabase /auth/v1/user and reads the user's email + role
+(from app_metadata.role). Permissions are enforced HERE, not just in the UI.
 
-Endpoints:
-  GET    /api/health                 -> {"ok": true}
-  GET    /api/records?category=copq  -> [ {id, category, serial_no, data, created_at}, ... ]
-  GET    /api/records/next_serial?category=copq -> {"next": 7}
-  POST   /api/records                -> create  (body: {category, data})  returns created row
-  DELETE /api/records/<id>           -> delete   returns {"deleted": true}
+Permission matrix:
+  view all records / export ....... admin, editor, viewer
+  add records ..................... admin, editor          (viewer -> 403)
+  delete records .................. admin (any) | editor (own only) | viewer (none)
 
-Run locally:
-  pip install -r requirements.txt
-  set the env vars (see .env.example), then:  python app.py
+A user whose role is missing/invalid is treated as 'viewer' (least privilege).
+
+Environment variables (set on Render):
+  SUPABASE_URL            project URL (base only, no /rest/v1)
+  SUPABASE_SERVICE_KEY    service-role key  (DB access)
+  SUPABASE_ANON_KEY       anon (public) key (used to verify user tokens)   <-- NEW
+  ALLOWED_ORIGINS         your front-end origin, e.g. https://garryii51.github.io
 """
 import os
 import requests
-from flask import Flask, request, jsonify
+from functools import wraps
+from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 
-# ---- config (from environment, never hard-coded) ----
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY  = os.environ.get("SUPABASE_SERVICE_KEY", "")
-# Comma-separated list of allowed front-end origins (your GitHub Pages URL, localhost, etc.)
-# Default is empty -> CORS effectively closed until you set it. Use "*" only knowingly.
+ANON_KEY     = os.environ.get("SUPABASE_ANON_KEY", "")
+
 _origins_raw = os.environ.get("ALLOWED_ORIGINS", "").strip()
 ALLOWED_ORIGINS = [o.strip() for o in _origins_raw.split(",") if o.strip()] or ["*"]
 
-REST = f"{SUPABASE_URL}/rest/v1/records"
+REST     = f"{SUPABASE_URL}/rest/v1/records"
+AUTH_URL = f"{SUPABASE_URL}/auth/v1/user"
 HEADERS = {
     "apikey": SERVICE_KEY,
     "Authorization": f"Bearer {SERVICE_KEY}",
@@ -36,31 +41,74 @@ HEADERS = {
 }
 
 app = Flask(__name__)
-# Restrict CORS to the /api/* paths, only the configured origins, only the methods we use.
 CORS(app,
      resources={r"/api/*": {"origins": ALLOWED_ORIGINS}},
-     methods=["GET", "POST", "DELETE", "OPTIONS"],
-     allow_headers=["Content-Type"])
+     methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+     allow_headers=["Content-Type", "Authorization"])
 
-# Loud startup warnings so misconfiguration is obvious in the Render logs.
 if not SUPABASE_URL or not SERVICE_KEY:
-    app.logger.warning("SUPABASE_URL / SUPABASE_SERVICE_KEY not set — API will return 500 until configured.")
+    app.logger.warning("SUPABASE_URL / SUPABASE_SERVICE_KEY not set.")
+if not ANON_KEY:
+    app.logger.warning("SUPABASE_ANON_KEY not set — login verification will fail until set.")
 if ALLOWED_ORIGINS == ["*"]:
-    app.logger.warning("ALLOWED_ORIGINS is '*' (any site can call this API). Set it to your front-end URL in production.")
+    app.logger.warning("ALLOWED_ORIGINS is '*' — set it to your front-end URL in production.")
+
+VALID_ROLES = {"admin", "editor", "viewer"}
+
+
+def verify_user(token):
+    """Validate a Supabase JWT -> {'email':..., 'role':...} or None."""
+    if not token or not ANON_KEY:
+        return None
+    try:
+        r = requests.get(AUTH_URL, timeout=15, headers={
+            "apikey": ANON_KEY, "Authorization": f"Bearer {token}",
+        })
+        if not r.ok:
+            return None
+        u = r.json()
+        email = u.get("email")
+        role = (u.get("app_metadata") or {}).get("role")
+        if role not in VALID_ROLES:
+            role = "viewer"   # least privilege by default
+        return {"email": email, "role": role}
+    except Exception:
+        return None
+
+
+def require_user(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        auth = request.headers.get("Authorization", "")
+        token = auth[7:] if auth.lower().startswith("bearer ") else ""
+        user = verify_user(token)
+        if not user or not user["email"]:
+            return jsonify(error="unauthorized"), 401
+        g.user = user
+        return fn(*args, **kwargs)
+    return wrapper
 
 
 def _check_config():
     if not SUPABASE_URL or not SERVICE_KEY:
-        return jsonify(error="Server not configured: set SUPABASE_URL and SUPABASE_SERVICE_KEY"), 500
+        return jsonify(error="Server not configured"), 500
     return None
 
 
 @app.get("/api/health")
 def health():
-    return jsonify(ok=True, configured=bool(SUPABASE_URL and SERVICE_KEY))
+    return jsonify(ok=True, configured=bool(SUPABASE_URL and SERVICE_KEY),
+                   auth_configured=bool(ANON_KEY))
+
+
+@app.get("/api/me")
+@require_user
+def me():
+    return jsonify(email=g.user["email"], role=g.user["role"])
 
 
 @app.get("/api/records")
+@require_user
 def list_records():
     err = _check_config()
     if err:
@@ -75,50 +123,26 @@ def list_records():
     return jsonify(r.json())
 
 
-@app.get("/api/records/next_serial")
-def next_serial():
-    """Return the next sequential Sr. No. for a category (current max + 1)."""
-    err = _check_config()
-    if err:
-        return err
-    category = request.args.get("category", "")
-    params = {
-        "select": "serial_no",
-        "category": f"eq.{category}",
-        "order": "serial_no.desc",
-        "limit": "1",
-    }
-    r = requests.get(REST, headers=HEADERS, params=params, timeout=15)
-    if not r.ok:
-        return jsonify(error="supabase_error", detail=r.text), r.status_code
-    rows = r.json()
-    nxt = (rows[0]["serial_no"] + 1) if rows and rows[0].get("serial_no") else 1
-    return jsonify(next=nxt)
-
-
 @app.post("/api/records")
+@require_user
 def create_record():
     err = _check_config()
     if err:
         return err
+    if g.user["role"] == "viewer":
+        return jsonify(error="forbidden: viewers cannot add records"), 403
     body = request.get_json(force=True, silent=True) or {}
     category = body.get("category")
     data = body.get("data", {})
     if not category:
         return jsonify(error="category is required"), 400
-
-    # compute the next serial server-side so it can't be tampered with
-    sp = {
-        "select": "serial_no",
-        "category": f"eq.{category}",
-        "order": "serial_no.desc",
-        "limit": "1",
-    }
+    sp = {"select": "serial_no", "category": f"eq.{category}",
+          "order": "serial_no.desc", "limit": "1"}
     sr = requests.get(REST, headers=HEADERS, params=sp, timeout=15)
     rows = sr.json() if sr.ok else []
     serial_no = (rows[0]["serial_no"] + 1) if rows and rows[0].get("serial_no") else 1
-
-    payload = {"category": category, "serial_no": serial_no, "data": data}
+    payload = {"category": category, "serial_no": serial_no,
+               "data": data, "owner": g.user["email"]}
     headers = {**HEADERS, "Prefer": "return=representation"}
     r = requests.post(REST, headers=headers, json=payload, timeout=15)
     if not r.ok:
@@ -128,18 +152,29 @@ def create_record():
 
 
 @app.delete("/api/records/<rec_id>")
+@require_user
 def delete_record(rec_id):
     err = _check_config()
     if err:
         return err
-    r = requests.delete(REST, headers=HEADERS, params={"id": f"eq.{rec_id}"}, timeout=15)
-    if not r.ok:
-        return jsonify(error="supabase_error", detail=r.text), r.status_code
-    return jsonify(deleted=True)
+    role = g.user["role"]
+    if role == "viewer":
+        return jsonify(error="forbidden: viewers cannot delete"), 403
+    g1 = requests.get(REST, headers=HEADERS,
+                      params={"select": "owner", "id": f"eq.{rec_id}"}, timeout=15)
+    rows = g1.json() if g1.ok else []
+    if not rows:
+        return jsonify(error="not found"), 404
+    owner = rows[0].get("owner")
+    if role == "admin" or (role == "editor" and owner == g.user["email"]):
+        r = requests.delete(REST, headers=HEADERS, params={"id": f"eq.{rec_id}"}, timeout=15)
+        if not r.ok:
+            return jsonify(error="supabase_error", detail=r.text), r.status_code
+        return jsonify(deleted=True)
+    return jsonify(error="forbidden: you can only delete your own records"), 403
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    # debug stays OFF unless you explicitly set FLASK_DEBUG=1 for local work.
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
