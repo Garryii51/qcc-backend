@@ -549,9 +549,9 @@ const FUNCTIONS = ['Project Engineering','Automation','Electrical','Sales Soluti
   'Assembly P3','Site Execution','Robotics','System Engineering'];
 const LEVELS = ['L1','L2','L3','L4','L5'];
 const RATES = {
-  L4: 1000,   // Stage 1 rate (₹/hr) — EDIT
-  L3: 800,    // Stage 2 rate (₹/hr) — EDIT
-  L2: 600     // Stage 3 rate (₹/hr) — EDIT
+  L4: 625,   // Stage 1 rate (₹/hr) — EDIT
+  L3: 825,    // Stage 2 rate (₹/hr) — EDIT
+  L2: 1125     // Stage 3 rate (₹/hr) — EDIT
 };
 
 const CATEGORIES = {
@@ -633,7 +633,9 @@ const CATEGORIES = {
       {k:'indentNumber',label:'Indent Number',type:'text'},
       // Saving
       {k:'sec_saving',label:'Saving',type:'section'},
-      {k:'actualSaving',label:'Total Saving (₹)',type:'calc',diff:['psTotalCost','acTotalCost'],money:true},
+      {k:'savingMode',label:'Saving Entry',type:'select',options:['Calculated','Manual'],onchange:'syncSavingMode()'},
+      {k:'savingMode',label:'Saving Entry',type:'select',options:['Calculated','Manual'],onchange:'syncSavingMode()'},
+      {k:'actualSaving',label:'Total Saving (₹)',type:'calc',diff:['psTotalCost','acTotalCost'],money:true,modeField:'savingMode'},
       {k:'savingType',label:'Saving Type',type:'select',options:['Potential Saving','Actual Saving']},
       // STAR
       {k:'situation',label:'S — Situation',type:'textarea',full:true,req:true},
@@ -717,7 +719,7 @@ function openCat(k){
     let input;
     if(f.type==='textarea') input=`<textarea id="${id}"></textarea>`;
     else if(f.type==='link') input=`<input id="${id}" type="url" placeholder="https://...">`;
-    else if(f.type==='select') input=`<select id="${id}"><option value="">— select —</option>${f.options.map(o=>`<option>${o}</option>`).join('')}</select>`;
+    else if(f.type==='select') input=`<select id="${id}"${f.onchange?` onchange="${f.onchange}"`:''}><option value="">— select —</option>${f.options.map(o=>`<option>${o}</option>`).join('')}</select>`;
     else if(f.type==='number'||f.type==='money') input=`<input id="${id}" type="number" step="any" oninput="recalc()">`;
     else if(f.type==='date'){ const def=f.req?new Date().toISOString().slice(0,10):''; input=`<input id="${id}" type="date" value="${def}" onchange="recalc()">`; }
     else if(f.type==='month') input=`<input id="${id}" type="text" readonly placeholder="(auto from date)" style="background:var(--panel-2);color:var(--ink-dim)">`;
@@ -747,6 +749,12 @@ function recalc(){
       el.value = (src && src.value)? new Date(src.value).toLocaleString('en-US',{month:'short',year:'numeric'}) : '';
     }
     if(f.type==='calc'){
+      if(f.modeField){
+        const mode=$('#f_'+f.modeField);
+        if(mode && mode.value==='Manual'){
+          const raw=+el.value||0; vals[f.k]=raw; el.dataset.raw=raw; continue;
+        }
+      }
       let val=0;
       if(f.rate) val=num(f.rate.hours)*(RATES[f.rate.level]||0);
       else if(f.sum) f.sum.forEach(k=>val+=num(k));
@@ -759,6 +767,21 @@ function recalc(){
       vals[f.k]=(+el.value||0);                     // make raw inputs available to later calcs
     }
   }
+}
+  /* toggle the Total Saving field between Calculated (locked) and Manual (typeable) */
+function syncSavingMode(){
+  const mode=$('#f_savingMode'), sav=$('#f_actualSaving');
+  if(!mode||!sav) return;
+  if(mode.value==='Manual'){
+    sav.readOnly=false;
+    sav.style.background='#fff'; sav.style.borderColor='var(--accent)';
+    sav.placeholder='Enter saving manually';
+  }else{
+    sav.readOnly=true;
+    sav.style.background='#e9f7f1'; sav.style.borderColor='#bfe6d6';
+    sav.placeholder='(auto)';
+  }
+  recalc();
 }
 
 function clearForm(){
