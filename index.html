@@ -548,6 +548,11 @@ const FUNCTIONS = ['Project Engineering','Automation','Electrical','Sales Soluti
   'Project Management','SCM','Vendor','IT Software','IT Hardware','Assembly P1','Assembly P2',
   'Assembly P3','Site Execution','Robotics','System Engineering'];
 const LEVELS = ['L1','L2','L3','L4','L5'];
+const RATES = {
+  L4: 1000,   // Stage 1 rate (₹/hr) — EDIT
+  L3: 800,    // Stage 2 rate (₹/hr) — EDIT
+  L2: 600     // Stage 3 rate (₹/hr) — EDIT
+};
 
 const CATEGORIES = {
   copq:{ name:'Cost of Poor Quality', icon:'⚠️', color:'#ff6b6b',
@@ -569,15 +574,15 @@ const CATEGORIES = {
       // Stage 1
       {k:'s1person',label:'Stage 1 — Person Impacted',type:'select',options:FUNCTIONS},
       {k:'s1hours',label:'Stage 1 — Person Hours Lost',type:'number'},
-      {k:'s1cost',label:'Stage 1 — Cost Impact (₹)',type:'money'},
+      {k:'s1cost',label:'Stage 1 (L4) — Cost Impact (₹)',type:'calc',rate:{hours:'s1hours',level:'L4'},money:true},
       // Stage 2
       {k:'s2person',label:'Stage 2 — Person Impacted',type:'select',options:FUNCTIONS},
       {k:'s2hours',label:'Stage 2 — Person Hours Lost',type:'number'},
-      {k:'s2cost',label:'Stage 2 — Cost Impact (₹)',type:'money'},
+      {k:'s2cost',label:'Stage 2 (L3) — Cost Impact (₹)',type:'calc',rate:{hours:'s2hours',level:'L3'},money:true},
       // Stage 3
       {k:'s3person',label:'Stage 3 — Person Impacted',type:'select',options:FUNCTIONS},
       {k:'s3hours',label:'Stage 3 — Person Hours Lost',type:'number'},
-      {k:'s3cost',label:'Stage 3 — Cost Impact (₹)',type:'money'},
+      {k:'s3cost',label:'Stage 3 (L2) — Cost Impact (₹)',type:'calc',rate:{hours:'s3hours',level:'L2'},money:true},
       // Totals (auto)
       {k:'totalHours',label:'Total Hours Lost (Hrs)',type:'calc',sum:['s1hours','s2hours','s3hours']},
       {k:'appraisalCost',label:'Appraisal Cost (₹)',type:'money'},
@@ -743,7 +748,8 @@ function recalc(){
     }
     if(f.type==='calc'){
       let val=0;
-      if(f.sum) f.sum.forEach(k=>val+=num(k));
+      if(f.rate) val=num(f.rate.hours)*(RATES[f.rate.level]||0);
+      else if(f.sum) f.sum.forEach(k=>val+=num(k));
       else if(f.diff) val=num(f.diff[0])-num(f.diff[1]);
       else if(f.mul) val=f.mul.reduce((p,k)=>p*num(k),1);
       vals[f.k]=val;
