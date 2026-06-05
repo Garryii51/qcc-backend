@@ -565,7 +565,6 @@ const CATEGORIES = {
       {k:'supplierName',label:'Supplier Name',type:'select',options:FUNCTIONS,req:true},
       {k:'issueDesc',label:'Issue Description',type:'textarea',full:true,req:true},
       {k:'failureType',label:'Type of Failure',type:'text'},
-      {k:'level',label:'Level',type:'select',options:LEVELS},
       {k:'dateIdentified',label:'Date Identified',type:'date',req:true},
       {k:'monthIdentified',label:'Month Identified',type:'month',from:'dateIdentified'},
       {k:'resolutionDate',label:'Resolution Date',type:'date'},
@@ -634,7 +633,7 @@ const CATEGORIES = {
       // Saving
       {k:'sec_saving',label:'Saving',type:'section'},
       {k:'savingMode',label:'Saving Entry',type:'select',options:['Calculated','Manual'],onchange:'syncSavingMode()'},
-      {k:'savingMode',label:'Saving Entry',type:'select',options:['Calculated','Manual'],onchange:'syncSavingMode()'},
+      {k:'actualSaving',label:'Total Saving (₹)',type:'calc',diff:['psTotalCost','acTotalCost'],money:true,modeField:'savingMode'},
       {k:'savingType',label:'Saving Type',type:'select',options:['Potential Saving','Actual Saving']},
       // STAR
       {k:'situation',label:'S — Situation',type:'textarea',full:true,req:true},
