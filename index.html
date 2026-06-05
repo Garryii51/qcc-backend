@@ -612,7 +612,7 @@ const CATEGORIES = {
     fields:[
       {k:'srno',label:'Sr. No.',type:'serial'},
       // Primary
-      {k:'projectName',label:'Project Name',type:'text',req:true},
+      {k:'projectName',label:'Project code',type:'text',req:true},
       {k:'designerName',label:'Designer Name',type:'text'},
       {k:'partName',label:'Part Name',type:'text',req:true},
       // Presale Consideration
@@ -635,7 +635,6 @@ const CATEGORIES = {
       {k:'sec_saving',label:'Saving',type:'section'},
       {k:'savingMode',label:'Saving Entry',type:'select',options:['Calculated','Manual'],onchange:'syncSavingMode()'},
       {k:'savingMode',label:'Saving Entry',type:'select',options:['Calculated','Manual'],onchange:'syncSavingMode()'},
-      {k:'actualSaving',label:'Total Saving (₹)',type:'calc',diff:['psTotalCost','acTotalCost'],money:true,modeField:'savingMode'},
       {k:'savingType',label:'Saving Type',type:'select',options:['Potential Saving','Actual Saving']},
       // STAR
       {k:'situation',label:'S — Situation',type:'textarea',full:true,req:true},
@@ -956,7 +955,7 @@ async function renderStats(){
     <div class="stat"><div class="n">${all.length}</div><div class="l">Total Records</div></div>
     <div class="stat"><div class="n" style="color:var(--warn)">${fmtMoney(totalCopq)}</div><div class="l">Total Cost of Poor Quality</div></div>
     <div class="stat"><div class="n" style="color:var(--gold)">${fmtMoney(totalSave)}</div><div class="l">Total Cost Saving</div></div>
-    <div class="stat"><div class="n" style="color:var(--accent)">${fmtMoney(totalSave-totalCopq)}</div><div class="l">Net (Saving − COPQ)</div></div>`;
+    </div></div>`;
 
   Object.values(charts).forEach(c=>c&&c.destroy());
   const bar=(canvas,labels,values,color)=>new Chart($(canvas),{type:'bar',
