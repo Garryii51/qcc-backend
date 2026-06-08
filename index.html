@@ -1010,11 +1010,10 @@ async function renderStats(){
       {label:'Actual Saving',data:actualByProj,backgroundColor:'#0e9f6e',borderRadius:6},
       {label:'Potential Saving',data:potentialByProj,backgroundColor:'#c27803',borderRadius:6}
     ]},
-    options:{responsive:true,animation:false,
+   options:{responsive:true,animation:false,layout:{padding:{top:24}},
       plugins:{legend:{display:true,position:'top',labels:{color:'#6b7686',font:{size:11}}}},
       scales:{x:{ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}},
-              y:{ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}}}},
-    plugins:[valueLabels]});
+              y:{beginAtZero:true,grace:'8%',ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}}}},
 
   // 3) COPQ: supplier name -> total cost
   const g3=groupBy(copq, r=>r.supplierName, r=>+r.totalCost||0);
@@ -1029,9 +1028,10 @@ async function renderStats(){
   charts.gp=bar('#chartGP', g5.labels, g5.values, '#0e9f6e');
 }
 function chartOpts(){
-  return {responsive:true,animation:false,plugins:{legend:{display:false}},
-    scales:{x:{ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}},
-            y:{ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}}}};
+ options:{responsive:true,animation:false,
+      plugins:{legend:{display:true,position:'top',labels:{color:'#6b7686',font:{size:11}}}},
+      scales:{x:{ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}},
+              y:{ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}}}},
 }
 
 /* fullscreen a chart box; resize the chart so it fills the screen */
@@ -1044,8 +1044,8 @@ function goFullscreen(boxId){
 }
 document.addEventListener('fullscreenchange', ()=>{
   // give the layout a moment, then resize all charts to fit
-  setTimeout(()=>{ Object.values(charts).forEach(c=>{ try{c.resize();}catch(e){} }); }, 120);
-});
+  requestAnimationFrame(()=>{ setTimeout(()=>{ Object.values(charts).forEach(c=>{ try{c.resize();}catch(e){} }); }, 150); });
+}
 
 /* ---------------- stats PDF export ---------------- */
 async function exportStatsPDF(){
