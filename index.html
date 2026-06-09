@@ -394,6 +394,14 @@
 
     <div class="toolbar">
       <input type="search" id="search" placeholder="Search records…" oninput="renderTable()">
+      <label style="font-size:.78rem;color:var(--ink-dim)">From <input type="date" id="fltFrom" onchange="renderTable()" style="width:auto"></label>
+      <label style="font-size:.78rem;color:var(--ink-dim)">To <input type="date" id="fltTo" onchange="renderTable()" style="width:auto"></label>
+      <select id="fltSaving" onchange="renderTable()" style="width:auto;display:none">
+        <option value="">All Savings</option>
+        <option value="Actual Saving">Actual Saving</option>
+        <option value="Potential Saving">Potential Saving</option>
+      </select>
+      <button class="btn btn-ghost" onclick="clearFilters()" style="padding:9px 14px">Clear</button>
       <span class="spacer"></span>
       <button class="btn btn-blue" onclick="exportExcel()">⬇ Excel</button>
       <button class="btn btn-blue" onclick="exportPDF()">⬇ PDF</button>
@@ -868,13 +876,43 @@ async function saveRecord(){
 }
 
 /* ---------------- table ---------------- */
+/* shared filter: search + date range + (presale) saving type. Used by table + exports */
+function dateFieldKey(c){ const f=c.fields.find(x=>x.type==='date'); return f?f.k:null; }
+async function getFiltered(catKey){
+  const c=CATEGORIES[catKey];
+  let recs=await DB.list(catKey);
+  const q=($('#search')?$('#search').value:'').toLowerCase();
+  if(q) recs=recs.filter(r=>Object.values(r).some(v=>String(v).toLowerCase().includes(q)));
+  const from=$('#fltFrom')&&$('#fltFrom').value, to=$('#fltTo')&&$('#fltTo').value;
+  const dk=dateFieldKey(c);
+  if(dk && (from||to)){
+    recs=recs.filter(r=>{
+      const d=r[dk]; if(!d) return false;
+      if(from && d<from) return false;
+      if(to && d>to) return false;
+      return true;
+    });
+  }
+  if(catKey==='presale'){
+    const sv=$('#fltSaving')&&$('#fltSaving').value;
+    if(sv) recs=recs.filter(r=>r.savingType===sv);
+  }
+  return recs;
+}
+function clearFilters(){
+  if($('#search'))$('#search').value='';
+  if($('#fltFrom'))$('#fltFrom').value='';
+  if($('#fltTo'))$('#fltTo').value='';
+  if($('#fltSaving'))$('#fltSaving').value='';
+  renderTable();
+}
 async function renderTable(){
   const c=CATEGORIES[current];
+  // show saving-type filter only for Cost Saving
+  const savSel=$('#fltSaving'); if(savSel) savSel.style.display = (current==='presale')?'':'none';
   let recs;
-  try{ recs=await DB.list(current); }
+  try{ recs=await getFiltered(current); }
   catch(e){ $('#recTable').innerHTML=`<tr><td><div class="empty">⚠ Could not load records. Is the backend running and API_BASE correct?</div></td></tr>`; console.error(e); return; }
-  const q=$('#search').value.toLowerCase();
-  if(q) recs=recs.filter(r=>Object.values(r).some(v=>String(v).toLowerCase().includes(q)));
   recs.sort((a,b)=>{
     let x=a[sortKey]||'', y=b[sortKey]||'';
     if(!isNaN(x)&&!isNaN(y)&&x!==''&&y!==''){x=+x;y=+y;}
@@ -979,7 +1017,7 @@ function recompCalc(k,c,partial){
 /* ---------------- exports ---------------- */
 async function exportRows(){
   const c=CATEGORIES[current];
-  const recs=await DB.list(current);
+  const recs=await getFiltered(current);
   const cols=c.fields.filter(f=>f.type!=='section');
   const headers=cols.map(f=>f.label).concat('Saved At');
   const rows=recs.map(r=>cols.map(f=>
@@ -1223,3 +1261,4 @@ async function logout(){ await AUTH.logout(); location.reload(); }
 </script>
 </body>
 </html>>
+
