@@ -53,7 +53,7 @@ if not ANON_KEY:
 if ALLOWED_ORIGINS == ["*"]:
     app.logger.warning("ALLOWED_ORIGINS is '*' — set it to your front-end URL in production.")
 
-VALID_ROLES = {"admin", "editor", "viewer"}
+VALID_ROLES = {"admin", "editor", "viewer", "approver"}
 
 
 def verify_user(token):
@@ -172,6 +172,78 @@ def delete_record(rec_id):
             return jsonify(error="supabase_error", detail=r.text), r.status_code
         return jsonify(deleted=True)
     return jsonify(error="forbidden: you can only delete your own records"), 403
+
+
+@app.route("/api/records/<rec_id>", methods=["PATCH"])
+@require_user
+def update_record(rec_id):
+    err = _check_config()
+    if err:
+        return err
+    role = g.user["role"]
+    if role == "viewer":
+        return jsonify(error="forbidden: viewers cannot edit"), 403
+    body = request.get_json(force=True, silent=True) or {}
+    new_data = body.get("data")
+    if new_data is None:
+        return jsonify(error="data is required"), 400
+    # fetch owner + existing data
+    g1 = requests.get(REST, headers=HEADERS,
+                      params={"select": "owner,data", "id": f"eq.{rec_id}"}, timeout=15)
+    rows = g1.json() if g1.ok else []
+    if not rows:
+        return jsonify(error="not found"), 404
+    owner = rows[0].get("owner")
+    # admin: any. editor: own only.
+    if not (role == "admin" or (role == "editor" and owner == g.user["email"])):
+        return jsonify(error="forbidden: you can only edit your own records"), 403
+    merged = {**(rows[0].get("data") or {}), **new_data}
+    headers = {**HEADERS, "Prefer": "return=representation"}
+    r = requests.patch(REST, headers=headers, params={"id": f"eq.{rec_id}"},
+                       json={"data": merged}, timeout=15)
+    if not r.ok:
+        return jsonify(error="supabase_error", detail=r.text), r.status_code
+    updated = r.json()
+    return jsonify(updated[0] if isinstance(updated, list) else updated)
+
+
+@app.route("/api/records/<rec_id>/approve", methods=["POST"])
+@require_user
+def approve_record(rec_id):
+    err = _check_config()
+    if err:
+        return err
+    role = g.user["role"]
+    # only approver or admin may approve
+    if role not in ("admin", "approver"):
+        return jsonify(error="forbidden: only approver or admin can approve"), 403
+    body = request.get_json(force=True, silent=True) or {}
+    decision = body.get("decision")
+    note = body.get("note", "")
+    if decision not in ("Approved", "Rejected"):
+        return jsonify(error="decision must be 'Approved' or 'Rejected'"), 400
+    g1 = requests.get(REST, headers=HEADERS,
+                      params={"select": "owner,data", "id": f"eq.{rec_id}"}, timeout=15)
+    rows = g1.json() if g1.ok else []
+    if not rows:
+        return jsonify(error="not found"), 404
+    owner = rows[0].get("owner")
+    # cannot approve your own record (integrity) — applies even to admin
+    if owner == g.user["email"]:
+        return jsonify(error="forbidden: you cannot approve your own record"), 403
+    data = rows[0].get("data") or {}
+    data["approvalStatus"] = decision
+    data["approvedBy"] = g.user["email"]
+    data["approvalDate"] = __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    data["approvalNote"] = note
+    data["status"] = "Closed" if decision == "Approved" else data.get("status", "Action")
+    headers = {**HEADERS, "Prefer": "return=representation"}
+    r = requests.patch(REST, headers=headers, params={"id": f"eq.{rec_id}"},
+                       json={"data": data}, timeout=15)
+    if not r.ok:
+        return jsonify(error="supabase_error", detail=r.text), r.status_code
+    out = r.json()
+    return jsonify(out[0] if isinstance(out, list) else out)
 
 
 if __name__ == "__main__":
