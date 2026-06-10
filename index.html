@@ -487,6 +487,7 @@ const AUTH = {
     if(action==='add') return r==='admin' || r==='editor';
     if(action==='delete_any') return r==='admin';
     if(action==='delete_own') return r==='admin' || r==='editor';
+    if(action==='approve') return r==='admin' || r==='approver';
     return true; // view/export
   }
 };
@@ -570,6 +571,15 @@ const DB = {
     });
     showWaking(false);
     if(!res.ok) throw new Error('update failed: ' + res.status);
+    return this._flat(await res.json());
+  },
+  async approve(id, decision, note){
+    const res = await apiFetch(API_BASE + '/api/records/' + encodeURIComponent(id) + '/approve', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ decision, note: note||'' })
+    });
+    showWaking(false);
+    if(!res.ok) throw new Error('approve failed: ' + res.status);
     return this._flat(await res.json());
   }
 };
@@ -699,6 +709,49 @@ const CATEGORIES = {
       {k:'date',label:'Date',type:'date',req:true},
       {k:'championName',label:'Name of Champion',type:'text',req:true},
       {k:'workDone',label:'Work Done',type:'textarea',full:true,req:true}
+    ]},
+  rcacapa:{ name:'RCA & CAPA', icon:'🛠️', color:'#0891b2',
+    desc:'8D-style problem solving: root cause through corrective action, with approval.',
+    tableCols:['srno','rcaNo','projectCode','status','approvalStatus'],
+    fields:[
+      {k:'srno',label:'Sr. No.',type:'serial'},
+      {k:'sec_hdr',label:'Header',type:'section'},
+      {k:'rcaNo',label:'RCA / CAPA #',type:'text',req:true},
+      {k:'projectCode',label:'Project Code',type:'text',req:true},
+      {k:'dateOccurred',label:'Date Problem Occurred',type:'date',req:true},
+      {k:'teamMembers',label:'Team Member(s)',type:'textarea',full:true},
+      {k:'problemType',label:'Type of Problem',type:'select',options:['Safety','Quality','Delivery','Inventory','Productivity','Other']},
+      {k:'status',label:'Lifecycle Status',type:'select',options:['Open','Containment','Root Cause','Action','Verification','Pending Approval','Closed']},
+      {k:'sec_s1',label:'Step 1 — Understand the Current Situation',type:'section'},
+      {k:'problemDesc',label:'Describe the problem (specific, measurable: deviation, area, station). Has it occurred before?',type:'textarea',full:true,req:true},
+      {k:'customerProtect',label:'Does the customer need to be protected? Immediate containment action',type:'textarea',full:true},
+      {k:'sec_s2',label:'Step 2 — Grasp the Facts',type:'section'},
+      {k:'gemba6m',label:'Go to Gemba — collect data & questions. 6M Analysis',type:'textarea',full:true},
+      {k:'sec_s3',label:'Step 3 — Establish Point of Cause',type:'section'},
+      {k:'pointOfCause',label:'6M / 5W1H analysis to localise the cause',type:'textarea',full:true},
+      {k:'sec_s4',label:'Step 4 — Find Root Cause (5 Why)',type:'section'},
+      {k:'whyMade1',label:'Why Made? #1',type:'text'},{k:'whyMissed1',label:'Why Missed? #1',type:'text'},
+      {k:'whyMade2',label:'Why Made? #2',type:'text'},{k:'whyMissed2',label:'Why Missed? #2',type:'text'},
+      {k:'whyMade3',label:'Why Made? #3',type:'text'},{k:'whyMissed3',label:'Why Missed? #3',type:'text'},
+      {k:'whyMade4',label:'Why Made? #4',type:'text'},{k:'whyMissed4',label:'Why Missed? #4',type:'text'},
+      {k:'whyMade5',label:'Why Made? #5 (Root Cause)',type:'text'},{k:'whyMissed5',label:'Why Missed? #5 (Root Cause)',type:'text'},
+      {k:'rootCause',label:'Identified Root Cause (summary)',type:'textarea',full:true,req:true},
+      {k:'sec_ca',label:'Step 5 — Corrective Actions',type:'section'},
+      {k:'ca1',label:'Corrective Action #1',type:'text'},{k:'ca1owner',label:'Owner #1',type:'text'},{k:'ca1due',label:'Due Date #1',type:'date'},
+      {k:'ca2',label:'Corrective Action #2',type:'text'},{k:'ca2owner',label:'Owner #2',type:'text'},{k:'ca2due',label:'Due Date #2',type:'date'},
+      {k:'ca3',label:'Corrective Action #3',type:'text'},{k:'ca3owner',label:'Owner #3',type:'text'},{k:'ca3due',label:'Due Date #3',type:'date'},
+      {k:'ca4',label:'Corrective Action #4',type:'text'},{k:'ca4owner',label:'Owner #4',type:'text'},{k:'ca4due',label:'Due Date #4',type:'date'},
+      {k:'sec_eval',label:'Step 6 — Evaluate Corrective Actions',type:'section'},
+      {k:'evaluation',label:'Are actions effective? Has the root cause been eliminated? How is Built-In Quality ensured?',type:'textarea',full:true},
+      {k:'sec_std',label:'Step 7 — Standardize & Communicate',type:'section'},
+      {k:'standardExists',label:'Does a standard exist / been updated?',type:'select',options:['Yes','No']},
+      {k:'standardization',label:'How will actions become Standard Work? Communicated / Yokoten shared?',type:'textarea',full:true},
+      {k:'observations',label:'Observations',type:'textarea',full:true},
+      {k:'sec_appr',label:'Approval',type:'section'},
+      {k:'approvalStatus',label:'Approval Status',type:'approval'},
+      {k:'approvedBy',label:'Approved / Rejected By',type:'text',readonlyField:true},
+      {k:'approvalDate',label:'Approval Date',type:'text',readonlyField:true},
+      {k:'approvalNote',label:'Approver Comment',type:'textarea',full:true,readonlyField:true}
     ]}
 };
 
@@ -759,6 +812,8 @@ function openCat(k){
     else if(f.type==='month') input=`<input id="${id}" type="text" readonly placeholder="(auto from date)" style="background:var(--panel-2);color:var(--ink-dim)">`;
     else if(f.type==='serial') input=`<input id="${id}" type="text" readonly placeholder="(auto on save)" style="background:var(--panel-2);color:var(--ink-dim)">`;
     else if(f.type==='calc') input=`<input id="${id}" type="text" readonly placeholder="(auto)" style="background:#e9f7f1;color:var(--accent);font-weight:700;border-color:#bfe6d6">`;
+    else if(f.type==='approval') input=`<input id="${id}" type="text" readonly value="Pending" style="background:#fff7e6;color:#b45309;font-weight:700;border-color:#fde68a">`;
+    else if(f.readonlyField) input=`<input id="${id}" type="text" readonly placeholder="(set on approval)" style="background:var(--panel-2);color:var(--ink-dim)">`;
     else input=`<input id="${id}" type="text">`;
     return `<div class="fld ${f.full?'full':''}"><label>${f.label}${req}</label>${input}</div>`;
   }).join('');
@@ -960,8 +1015,31 @@ async function inspect(id){
   ).join('') + `<div class="pv-item full" style="grid-column:1/-1"><span class="k">Saved</span><span class="v">${new Date(r.created_at).toLocaleString('en-IN')}</span></div>`;
   // show Delete only if this user may delete THIS record (admin any / editor own)
   const canDelete = AUTH.can('delete_any') || (AUTH.can('delete_own') && CURRENT_USER && CURRENT_USER.email===r.owner);
-  $('#modalDeleteSlot').innerHTML = canDelete? `<button class="btn btn-warn" onclick="deleteFromModal()">Delete Record</button>` : '';
+  let slot = canDelete? `<button class="btn btn-warn" onclick="deleteFromModal()">Delete Record</button>` : '';
+  // approval controls: only for RCA&CAPA, approver/admin, NOT own record, not already decided
+  if(current==='rcacapa' && AUTH.can('approve')){
+    const isOwn = CURRENT_USER && CURRENT_USER.email===r.owner;
+    const decided = r.approvalStatus==='Approved' || r.approvalStatus==='Rejected';
+    if(isOwn){
+      slot += `<span style="color:var(--ink-dim);font-size:.8rem;align-self:center">You can't approve your own record</span>`;
+    } else if(!decided){
+      slot += `<button class="btn btn-primary" onclick="approveRec('Approved')">✓ Approve</button>
+               <button class="btn btn-warn" onclick="approveRec('Rejected')">✗ Reject</button>`;
+    } else {
+      slot += `<span style="color:var(--ink-dim);font-size:.8rem;align-self:center">${esc(r.approvalStatus)} by ${esc(r.approvedBy||'—')}</span>`;
+    }
+  }
+  $('#modalDeleteSlot').innerHTML = slot;
   $('#modalBg').classList.add('show');
+}
+async function approveRec(decision){
+  if(!modalId) return;
+  let note='';
+  if(decision==='Rejected'){ note=prompt('Reason for rejection (optional):')||''; }
+  try{
+    await DB.approve(modalId, decision, note);
+    closeModal(); toast('Record '+decision.toLowerCase()); renderTable();
+  }catch(e){ toast(e.message&&e.message.includes('403')?'Not allowed to approve this':'Approve failed'); console.error(e); }
 }
 function closeModal(){ $('#modalBg').classList.remove('show'); modalId=null; }
 async function deleteFromModal(){ if(modalId){ try{ await DB.remove(modalId); closeModal(); toast('Record deleted'); renderTable(); }catch(e){ toast(e.message&&e.message.includes('403')?'Not allowed — not your record':'Delete failed'); } } }
@@ -1040,9 +1118,13 @@ async function exportPDF(){
   if(!rows.length){ toast('No records to export'); return; }
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape'});
-  doc.setFontSize(15); doc.text('Quality Command Centre — '+name,14,15);
+  // jsPDF's built-in font can't render ₹ — swap to "Rs" for PDF text only
+  const deRupee = t => String(t).replace(/₹\s*/g,'Rs ').replace(/Rs \)/g,'Rs)');
+  const pdfHeaders = headers.map(deRupee);
+  const pdfRows = rows.map(row=>row.map(deRupee));
+  doc.setFontSize(15); doc.text('Quality Command Centre — '+deRupee(name),14,15);
   doc.setFontSize(9); doc.setTextColor(120); doc.text('Generated: '+new Date().toLocaleString('en-IN'),14,21);
-  doc.autoTable({ head:[headers], body:rows, startY:26, styles:{fontSize:7,cellPadding:2},
+  doc.autoTable({ head:[pdfHeaders], body:pdfRows, startY:26, styles:{fontSize:7,cellPadding:2},
     headStyles:{fillColor:[61,220,151],textColor:[6,35,26]}, alternateRowStyles:{fillColor:[245,247,250]} });
   doc.save(name.replace(/\s+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.pdf');
   toast('PDF exported');
@@ -1195,7 +1277,7 @@ async function exportStatsPDF(){
   const totalSave=all.filter(r=>r.category==='presale').reduce((s,r)=>s+(+r.actualSaving||0),0);
   doc.autoTable({
     startY:y,
-    head:[['Total Records','Total COPQ (₹)','Total Cost Saving (₹)','Net (₹)']],
+    head:[['Total Records','Total COPQ (Rs)','Total Cost Saving (Rs)','Net (Rs)']],
     body:[[all.length, totalCopq.toLocaleString('en-IN'), totalSave.toLocaleString('en-IN'), (totalSave-totalCopq).toLocaleString('en-IN')]],
     styles:{fontSize:9,halign:'center'},
     headStyles:{fillColor:[14,159,110],textColor:255}
@@ -1261,4 +1343,3 @@ async function logout(){ await AUTH.logout(); location.reload(); }
 </script>
 </body>
 </html>>
-
