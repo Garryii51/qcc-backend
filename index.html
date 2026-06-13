@@ -721,6 +721,7 @@ const CATEGORIES = {
       {k:'dateOccurred',label:'Date Problem Occurred',type:'date',req:true},
       {k:'teamMembers',label:'Team Member(s)',type:'textarea',full:true},
       {k:'problemType',label:'Type of Problem',type:'select',options:['Safety','Quality','Delivery','Inventory','Productivity','Other']},
+      {k:'attachment',label:'Attachment Link (photo / sketch / document URL)',type:'link',full:true},
       {k:'status',label:'Lifecycle Status',type:'select',options:['Open','Containment','Root Cause','Action','Verification','Pending Approval','Closed']},
       {k:'sec_s1',label:'Step 1 — Understand the Current Situation',type:'section'},
       {k:'problemDesc',label:'Describe the problem (specific, measurable: deviation, area, station). Has it occurred before?',type:'textarea',full:true,req:true},
@@ -729,6 +730,12 @@ const CATEGORIES = {
       {k:'gemba6m',label:'Go to Gemba — collect data & questions. 6M Analysis',type:'textarea',full:true},
       {k:'sec_s3',label:'Step 3 — Establish Point of Cause',type:'section'},
       {k:'pointOfCause',label:'6M / 5W1H analysis to localise the cause',type:'textarea',full:true},
+      {k:'m_man',label:'Fishbone — Man (people, training, error)',type:'text',full:true},
+      {k:'m_machine',label:'Fishbone — Machine (equipment, tooling)',type:'text',full:true},
+      {k:'m_method',label:'Fishbone — Method (process, procedure)',type:'text',full:true},
+      {k:'m_material',label:'Fishbone — Material (parts, supplier)',type:'text',full:true},
+      {k:'m_measurement',label:'Fishbone — Measurement (inspection, gauges)',type:'text',full:true},
+      {k:'m_environment',label:'Fishbone — Environment (workplace, conditions)',type:'text',full:true},
       {k:'sec_s4',label:'Step 4 — Find Root Cause (5 Why)',type:'section'},
       {k:'whyMade1',label:'Why Made? #1',type:'text'},{k:'whyMissed1',label:'Why Missed? #1',type:'text'},
       {k:'whyMade2',label:'Why Made? #2',type:'text'},{k:'whyMissed2',label:'Why Missed? #2',type:'text'},
@@ -1016,6 +1023,14 @@ async function inspect(id){
   // show Delete only if this user may delete THIS record (admin any / editor own)
   const canDelete = AUTH.can('delete_any') || (AUTH.can('delete_own') && CURRENT_USER && CURRENT_USER.email===r.owner);
   let slot = canDelete? `<button class="btn btn-warn" onclick="deleteFromModal()">Delete Record</button>` : '';
+  // Download Report — RCA&CAPA only, enabled once Approved
+  if(current==='rcacapa'){
+    if(r.approvalStatus==='Approved'){
+      slot += `<button class="btn btn-blue" onclick="downloadReport('${r.id}')">⬇ Download Report</button>`;
+    } else {
+      slot += `<span style="color:var(--ink-dim);font-size:.78rem;align-self:center">Report download available once Approved</span>`;
+    }
+  }
   // approval controls: only for RCA&CAPA, approver/admin, NOT own record, not already decided
   if(current==='rcacapa' && AUTH.can('approve')){
     const isOwn = CURRENT_USER && CURRENT_USER.email===r.owner;
@@ -1040,6 +1055,141 @@ async function approveRec(decision){
     await DB.approve(modalId, decision, note);
     closeModal(); toast('Record '+decision.toLowerCase()); renderTable();
   }catch(e){ toast(e.message&&e.message.includes('403')?'Not allowed to approve this':'Approve failed'); console.error(e); }
+}
+
+/* download a single approved RCA & CAPA as a formatted PDF report */
+async function downloadReport(id){
+  const recs=await DB.list('rcacapa');
+  const r=recs.find(x=>x.id===id); if(!r){ toast('Record not found'); return; }
+  if(r.approvalStatus!=='Approved'){ toast('Only approved records can be downloaded'); return; }
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  const deR=t=>String(t==null?'':t).replace(/₹\s*/g,'Rs ');
+  const W=doc.internal.pageSize.getWidth(), M=16; let y=0;
+  // light, professional palette
+  const SLATE=[71,85,105], BANDBG=[241,245,249], LINE=[203,213,225], INK=[51,65,85], MUT=[120,132,148], GREEN=[22,128,80];
+  const logo=(document.querySelector('.brand-logo')||{}).src;
+  const need=h=>{ if(y+h>286){ doc.addPage(); y=16; } };
+  const band=(txt)=>{ need(14); doc.setFillColor(BANDBG[0],BANDBG[1],BANDBG[2]); doc.setDrawColor(LINE[0],LINE[1],LINE[2]); doc.setLineWidth(0.2);
+    doc.roundedRect(M,y,W-2*M,8,1.5,1.5,'FD');
+    doc.setTextColor(SLATE[0],SLATE[1],SLATE[2]).setFont(undefined,'bold').setFontSize(10);
+    doc.text(deR(txt),M+3,y+5.5); doc.setFont(undefined,'normal'); y+=12; };
+  const kv=(label,val)=>{ val=deR(val); if(!val) val='—';
+    const lv=doc.splitTextToSize(label,52), vv=doc.splitTextToSize(val,W-2*M-60);
+    const h=Math.max(lv.length,vv.length)*4.8;
+    need(h+4);
+    doc.setTextColor(MUT[0],MUT[1],MUT[2]).setFontSize(8.5).setFont(undefined,'bold');
+    doc.text(lv,M+1,y+3.4); doc.setFont(undefined,'normal');
+    doc.setTextColor(INK[0],INK[1],INK[2]); doc.text(vv,M+56,y+3.4);
+    y+=h+3.5;
+    doc.setDrawColor(238,242,247).setLineWidth(0.15); doc.line(M,y-1.5,W-M,y-1.5);
+  };
+
+  // ── header ──
+  doc.setFillColor(248,250,252); doc.rect(0,0,W,32,'F');
+  doc.setDrawColor(LINE[0],LINE[1],LINE[2]).setLineWidth(0.3); doc.line(0,32,W,32);
+  if(logo){ try{ doc.addImage(logo,'JPEG',W-46,7,30,18); }catch(e){} }
+  doc.setTextColor(SLATE[0],SLATE[1],SLATE[2]).setFont(undefined,'bold').setFontSize(16);
+  doc.text('RCA & CAPA Report',M,16);
+  doc.setTextColor(MUT[0],MUT[1],MUT[2]).setFont(undefined,'normal').setFontSize(9);
+  doc.text(deR(r.rcaNo||'')+'   •   Project '+deR(r.projectCode||''),M,23);
+  doc.setFillColor(236,247,241); doc.setDrawColor(GREEN[0],GREEN[1],GREEN[2]).setLineWidth(0.3);
+  doc.roundedRect(M,26,26,5.5,1.2,1.2,'FD');
+  doc.setTextColor(GREEN[0],GREEN[1],GREEN[2]).setFontSize(7).setFont(undefined,'bold');
+  doc.text('APPROVED',M+2.5,29.8); doc.setFont(undefined,'normal');
+  y=40;
+
+  band('Header');
+  kv('Date Problem Occurred', r.dateOccurred);
+  kv('Type of Problem', r.problemType);
+  kv('Lifecycle Status', r.status);
+  kv('Team Member(s)', r.teamMembers);
+  if(r.attachment) kv('Attachment', r.attachment);
+
+  band('Step 1 — Understand the Current Situation');
+  kv('Problem Description', r.problemDesc);
+  kv('Customer Protection / Containment', r.customerProtect);
+
+  band('Step 2 — Grasp the Facts');
+  kv('Gemba / 6M Analysis', r.gemba6m);
+
+  band('Step 3 — Point of Cause');
+  kv('6M / 5W1H', r.pointOfCause);
+
+  drawFishbone(doc, r, M, W, ()=>y, need, v=>{y=v;}, deR);
+
+  band('Step 4 — Root Cause (5 Why)');
+  for(let i=1;i<=5;i++){ if(r['whyMade'+i]||r['whyMissed'+i]) kv('Why '+i+' — Made / Missed', (r['whyMade'+i]||'—')+'   /   '+(r['whyMissed'+i]||'—')); }
+  kv('Identified Root Cause', r.rootCause);
+
+  band('Step 5 — Corrective Actions');
+  for(let i=1;i<=4;i++){ if(r['ca'+i]) kv('Action '+i, deR(r['ca'+i])+'   |  Owner: '+(r['ca'+i+'owner']||'—')+'   |  Due: '+(r['ca'+i+'due']||'—')); }
+
+  band('Step 6 — Evaluate');
+  kv('Evaluation', r.evaluation);
+
+  band('Step 7 — Standardize & Communicate');
+  kv('Standard Exists / Updated', r.standardExists);
+  kv('Standardization / Yokoten', r.standardization);
+  if(r.observations) kv('Observations', r.observations);
+
+  // ── approval / sign-off box ──
+  need(34); y+=3;
+  doc.setFillColor(248,250,252); doc.setDrawColor(LINE[0],LINE[1],LINE[2]).setLineWidth(0.3);
+  doc.roundedRect(M,y,W-2*M,28,2,2,'FD');
+  doc.setTextColor(SLATE[0],SLATE[1],SLATE[2]).setFont(undefined,'bold').setFontSize(9.5);
+  doc.text('Approval & Sign-off',M+4,y+7); doc.setFont(undefined,'normal').setFontSize(8.6).setTextColor(INK[0],INK[1],INK[2]);
+  doc.text('Status:  '+deR(r.approvalStatus||'—'),M+4,y+14);
+  doc.text('Approved By:  '+deR(r.approvedBy||'—'),M+4,y+20);
+  doc.text('Date:  '+deR(r.approvalDate||'—'),M+4,y+26);
+  if(r.approvalNote){ doc.setTextColor(MUT[0],MUT[1],MUT[2]); const nl=doc.splitTextToSize('Comment: '+deR(r.approvalNote),(W-2*M)/2-8);
+    doc.text(nl,W/2+4,y+14); }
+  y+=32;
+
+  const pages=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pages;i++){ doc.setPage(i); doc.setFontSize(7.5).setTextColor(MUT[0],MUT[1],MUT[2]);
+    doc.text('Armstrong Dematic — Quality Command Centre',M,293);
+    doc.text('Page '+i+' / '+pages,W-M-18,293); }
+
+  doc.save('RCA_CAPA_'+String(r.rcaNo||r.id).replace(/\s+/g,'_')+'.pdf');
+  toast('Report downloaded');
+}
+
+/* draw a 6M Ishikawa fishbone with auto-spaced, non-colliding bones */
+function drawFishbone(doc, r, M, W, getY, need, setY, deR){
+  const cats=[['Man',r.m_man],['Machine',r.m_machine],['Method',r.m_method],
+              ['Material',r.m_material],['Measurement',r.m_measurement],['Environment',r.m_environment]];
+  if(!cats.some(c=>c[1])) return;
+  const SLATE=[71,85,105], LINE=[203,213,225], MUT=[120,132,148];
+  need(80); let y=getY();
+  doc.setFillColor(241,245,249); doc.setDrawColor(LINE[0],LINE[1],LINE[2]).setLineWidth(0.2);
+  doc.roundedRect(M,y,W-2*M,8,1.5,1.5,'FD');
+  doc.setTextColor(SLATE[0],SLATE[1],SLATE[2]).setFont(undefined,'bold').setFontSize(10);
+  doc.text('Fishbone (Ishikawa) — 6M Cause Analysis',M+3,y+5.5); doc.setFont(undefined,'normal'); y+=13;
+
+  const diagH=58, top=y, spineY=top+diagH/2;
+  const headW=40, left=M+4, right=W-M-headW-2;
+  doc.setDrawColor(90,100,115).setLineWidth(0.7); doc.line(left,spineY,right,spineY);
+  doc.setFillColor(248,250,252); doc.setDrawColor(SLATE[0],SLATE[1],SLATE[2]).setLineWidth(0.4);
+  doc.roundedRect(right,spineY-9,headW,18,2,2,'FD');
+  doc.setTextColor(SLATE[0],SLATE[1],SLATE[2]).setFontSize(8).setFont(undefined,'bold');
+  doc.text(doc.splitTextToSize('EFFECT\nProblem',headW-4),right+3,spineY-2); doc.setFont(undefined,'normal');
+
+  const usable=right-left-16, colW=usable/3;
+  for(let i=0;i<6;i++){
+    const isTop=i<3, idx=i%3;
+    const colCenter=left+8+idx*colW+colW/2;
+    const baseY=isTop? spineY-diagH/2 : spineY+diagH/2;
+    const meetX=colCenter+10;
+    doc.setDrawColor(150,160,175).setLineWidth(0.4);
+    doc.line(colCenter-14,baseY,meetX,spineY);
+    doc.setTextColor(SLATE[0],SLATE[1],SLATE[2]).setFontSize(8).setFont(undefined,'bold');
+    doc.text(cats[i][0],colCenter-14,isTop?baseY-1.5:baseY+4);
+    doc.setTextColor(MUT[0],MUT[1],MUT[2]).setFont(undefined,'normal').setFontSize(6.6);
+    const txt=doc.splitTextToSize(deR(cats[i][1]||'—'),colW-6).slice(0,3);
+    doc.text(txt,colCenter-14,isTop?baseY+2.5:baseY+8);
+  }
+  setY(top+diagH+6);
 }
 function closeModal(){ $('#modalBg').classList.remove('show'); modalId=null; }
 async function deleteFromModal(){ if(modalId){ try{ await DB.remove(modalId); closeModal(); toast('Record deleted'); renderTable(); }catch(e){ toast(e.message&&e.message.includes('403')?'Not allowed — not your record':'Delete failed'); } } }
