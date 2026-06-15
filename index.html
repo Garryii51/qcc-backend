@@ -1302,11 +1302,13 @@ async function renderStats(){
   const cn=all.filter(r=>r.category==='changenote');
   const gp=all.filter(r=>r.category==='goodpractice');
 
- const totalSave=save.reduce((s,r)=>s+(+r.actualSaving||0),0);
+const actualSave=save.filter(r=>r.savingType==='Actual Saving').reduce((s,r)=>s+(+r.actualSaving||0),0);
+  const potentialSave=save.filter(r=>r.savingType==='Potential Saving').reduce((s,r)=>s+(+r.actualSaving||0),0);
   $('#statCards').innerHTML=`
     <div class="stat"><div class="n">${all.length}</div><div class="l">Total Records</div></div>
     <div class="stat"><div class="n" style="color:var(--warn)">${fmtMoney(totalCopq)}</div><div class="l">Total Cost of Poor Quality</div></div>
-    <div class="stat"><div class="n" style="color:var(--gold)">${fmtMoney(totalSave)}</div><div class="l">Total Cost Saving</div></div>
+    <div class="stat"><div class="n" style="color:var(--accent)">${fmtMoney(actualSave)}</div><div class="l">Actual Cost Saving</div></div>
+    <div class="stat"><div class="n" style="color:var(--gold)">${fmtMoney(potentialSave)}</div><div class="l">Potential Cost Saving</div></div>
     </div></div>`;
 
   Object.values(charts).forEach(c=>c&&c.destroy());
