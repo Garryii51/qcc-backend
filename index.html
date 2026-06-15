@@ -1302,8 +1302,7 @@ async function renderStats(){
   const cn=all.filter(r=>r.category==='changenote');
   const gp=all.filter(r=>r.category==='goodpractice');
 
-  const totalCopq=copq.reduce((s,r)=>s+(+r.totalCost||0),0);
-  const totalSave=save.reduce((s,r)=>s+(+r.actualSaving||0),0);
+ const totalSave=save.reduce((s,r)=>s+(+r.actualSaving||0),0);
   $('#statCards').innerHTML=`
     <div class="stat"><div class="n">${all.length}</div><div class="l">Total Records</div></div>
     <div class="stat"><div class="n" style="color:var(--warn)">${fmtMoney(totalCopq)}</div><div class="l">Total Cost of Poor Quality</div></div>
