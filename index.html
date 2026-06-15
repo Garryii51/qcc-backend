@@ -1302,7 +1302,8 @@ async function renderStats(){
   const cn=all.filter(r=>r.category==='changenote');
   const gp=all.filter(r=>r.category==='goodpractice');
 
-const actualSave=save.filter(r=>r.savingType==='Actual Saving').reduce((s,r)=>s+(+r.actualSaving||0),0);
+  const totalCopq=copq.reduce((s,r)=>s+(+r.totalCost||0),0);
+  const actualSave=save.filter(r=>r.savingType==='Actual Saving').reduce((s,r)=>s+(+r.actualSaving||0),0);
   const potentialSave=save.filter(r=>r.savingType==='Potential Saving').reduce((s,r)=>s+(+r.actualSaving||0),0);
   $('#statCards').innerHTML=`
     <div class="stat"><div class="n">${all.length}</div><div class="l">Total Records</div></div>
@@ -1429,11 +1430,13 @@ async function exportStatsPDF(){
   // summary cards as a small table
   const all=await DB.list();
   const totalCopq=all.filter(r=>r.category==='copq').reduce((s,r)=>s+(+r.totalCost||0),0);
-  const totalSave=all.filter(r=>r.category==='presale').reduce((s,r)=>s+(+r.actualSaving||0),0);
+  const presale=all.filter(r=>r.category==='presale');
+  const actualSave=presale.filter(r=>r.savingType==='Actual Saving').reduce((s,r)=>s+(+r.actualSaving||0),0);
+  const potentialSave=presale.filter(r=>r.savingType==='Potential Saving').reduce((s,r)=>s+(+r.actualSaving||0),0);
   doc.autoTable({
     startY:y,
-    head:[['Total Records','Total COPQ (Rs)','Total Cost Saving (Rs)','Net (Rs)']],
-    body:[[all.length, totalCopq.toLocaleString('en-IN'), totalSave.toLocaleString('en-IN'), (totalSave-totalCopq).toLocaleString('en-IN')]],
+    head:[['Total Records','Total COPQ (Rs)','Actual Saving (Rs)','Potential Saving (Rs)','Net Actual (Rs)']],
+    body:[[all.length, totalCopq.toLocaleString('en-IN'), actualSave.toLocaleString('en-IN'), potentialSave.toLocaleString('en-IN'), (actualSave-totalCopq).toLocaleString('en-IN')]],
     styles:{fontSize:9,halign:'center'},
     headStyles:{fillColor:[14,159,110],textColor:255}
   });
