@@ -594,6 +594,13 @@ const FUNCTIONS = ['Project Engineering','Automation','Electrical','Sales Soluti
   'Project Management','SCM','Vendor','IT Software','IT Hardware','Assembly P1','Assembly P2',
   'Assembly P3','Site Execution','Robotics','System Engineering'];
 const LEVELS = ['L1','L2','L3','L4','L5'];
+
+/* Site Issues — standard dropdown lists (from company reference template) */
+const PROJECT_PHASES = ['FAT','Rapid Installation','IO testing','Software deployment (Controls)','Software deployment (IT)','Commissioning','SAT','Go Live','Ramp up and trials','Handover','Warranty','Life cycle'];
+const MODULE_FAMILIES = ['SRM','HDPS','DMS','4D robot','De-Dusting System','Fire dousing station','DC conveyor family','VDS- ARB Conveyors','Telescopic Conveyor','RGV','AGV','Curve conveyor- 30','Curve conveyor- 60','Curve conveyor- 90','VRC','Upward and Downward Spiral','Scissor Lift','F-RAT','Swivel Wheel Sorter','ARB Sorter','POP-D','Saw-Tooth Merger','Linear CBS','PTL','GTP','Stretch Wrapping','Shrink Wrapping','Pallet Strapping','Carton Strapping','Tapin m/c','Void filling','Print & apply','Bag Flattener and Vibrator','Pallet Dispensor','Robot arm','Robot Gripper','Robot linear track','Barcode Scanner','ICR','VMS','Image Capturing','Metal Detection','X-ray','Scanner and Dimensioner (4D/5D scanning)','Checkweigher','Skewed roller conveyor','Merg-30 & 45 conveyor','RAT','BOS AC','BOR inclince AC','Control panel','Power panel','sensors & connectors','Software','Battery Monitoring','Robot Monitoring','UI / Visualization','Operating panel','Conveyor','Documentation','ASRS inbound','ASRS outbound','Safety','All'];
+const DEPARTMENTS = ['Assembly','Automation','Component Manufacturing','Electrical Design','Emulation','Fabrication','NPD','Project','Mechatronic','QC','Robotics','Solution Design','Standard Product Division','System Engineering','Technology Solution','Tech Soln+Automation','Mechatronic+control'];
+const SITE_STATUS = ['Open','Close','WIP','Under observation'];
+const PA_CATEGORIES = ['Design Change','Process Change','Logic/ Flow change','Change in SOP','Quality/ Audit process addition'];
 const RATES = {
   L4: 625,   // Stage 1 rate (₹/hr) — EDIT
   L3: 825,    // Stage 2 rate (₹/hr) — EDIT
@@ -759,6 +766,56 @@ const CATEGORIES = {
       {k:'approvedBy',label:'Approved / Rejected By',type:'text',readonlyField:true},
       {k:'approvalDate',label:'Approval Date',type:'text',readonlyField:true},
       {k:'approvalNote',label:'Approver Comment',type:'textarea',full:true,readonlyField:true}
+    ]},
+  siteissue:{ name:'Site Issues', icon:'🚧', color:'#dc2626',
+    desc:'Field/installation-site issues — corrective & preventive action with approval.',
+    tableCols:['srno','issueId','projectCode','issueStatus','severity'],
+    fields:[
+      {k:'srno',label:'S.No',type:'serial'},
+      {k:'sec_hdr',label:'Header',type:'section'},
+      {k:'issueId',label:'Issue ID',type:'text',req:true},
+      {k:'projectCode',label:'Project Code',type:'text',req:true},
+      {k:'dateReported',label:'Date Reported',type:'date',req:true},
+      {k:'projectPhase',label:'Project Phase',type:'select',options:PROJECT_PHASES},
+      {k:'locationArea',label:'Location / Area',type:'text'},
+      {k:'moduleFamily',label:'Module / Segment Family',type:'select',options:MODULE_FAMILIES},
+      {k:'raisedBy',label:'Raised By',type:'text'},
+      {k:'severity',label:'Severity',type:'select',options:['Class A','Class B','Class C']},
+      {k:'issueCategory',label:'Category',type:'select',options:DEPARTMENTS},
+      {k:'issueStatus',label:'Issue Status',type:'select',options:SITE_STATUS},
+      {k:'sec_issue',label:'Issue Details',type:'section'},
+      {k:'problemStatement',label:'Problem Statement',type:'textarea',full:true,req:true},
+      {k:'issueDesc',label:'Issue Description',type:'textarea',full:true},
+      {k:'occurrences',label:'No. of Occurrences',type:'number'},
+      {k:'attachment1',label:'Photo/Video Link (issue)',type:'link',full:true},
+      {k:'sec_rca',label:'Root Cause & Corrective Action',type:'section'},
+      {k:'rootCauseIdentified',label:'Root Cause Identified',type:'select',options:['Yes','No','WIP']},
+      {k:'rootCause',label:'Root Cause',type:'textarea',full:true},
+      {k:'immediateAction',label:'Immediate Action Taken (Corrective Action)',type:'textarea',full:true},
+      {k:'closureAccountability',label:'Closure Accountability (Person)',type:'text'},
+      {k:'closureDept',label:'Closure Accountability (Department)',type:'select',options:DEPARTMENTS},
+      {k:'capaTargetDate',label:'CAPA Target Closure Date',type:'date'},
+      {k:'caActualDate',label:'CA Actual Closure Date',type:'date'},
+      {k:'attachment2',label:'Corrective Action Photo/Video Link',type:'link',full:true},
+      {k:'caStatus',label:'CA Status',type:'select',options:SITE_STATUS},
+      {k:'caAgeing',label:'CA Ageing (days)',type:'number'},
+      {k:'caAgeingRange',label:'CA Ageing Range',type:'calc',ageFrom:'caAgeing'},
+      {k:'sec_pa',label:'Preventive Action',type:'section'},
+      {k:'preventiveAction',label:'Defined Preventive Action',type:'textarea',full:true},
+      {k:'paAccountability',label:'Preventive Action Accountability (Dept)',type:'select',options:DEPARTMENTS},
+      {k:'paCategory',label:'Preventive Action Category',type:'select',options:PA_CATEGORIES},
+      {k:'paClosureDate',label:'Preventive Action Closure Date',type:'date'},
+      {k:'paStatus',label:'PA Status',type:'select',options:SITE_STATUS},
+      {k:'paAgeing',label:'PA Ageing (days)',type:'number'},
+      {k:'paAgeingRange',label:'PA Ageing Range',type:'calc',ageFrom:'paAgeing'},
+      {k:'sec_deploy',label:'Deployment & Closure',type:'section'},
+      {k:'implementedFrom',label:'Implemented From (Project Code)',type:'text'},
+      {k:'remarks',label:'Remarks',type:'textarea',full:true},
+      {k:'sec_appr',label:'Approval',type:'section'},
+      {k:'approvalStatus',label:'Approval Status',type:'approval'},
+      {k:'approvedBy',label:'Approved / Rejected By',type:'text',readonlyField:true},
+      {k:'approvalDate',label:'Approval Date',type:'text',readonlyField:true},
+      {k:'approvalNote',label:'Approver Comment',type:'textarea',full:true,readonlyField:true}
     ]}
 };
 
@@ -856,6 +913,12 @@ function recalc(){
       else if(f.sum) f.sum.forEach(k=>val+=num(k));
       else if(f.diff) val=num(f.diff[0])-num(f.diff[1]);
       else if(f.mul) val=f.mul.reduce((p,k)=>p*num(k),1);
+      else if(f.ageFrom){
+        const srcEl=$('#f_'+f.ageFrom);
+        const raw=srcEl?srcEl.value:'';
+        if(raw===''){ val=''; }
+        else{ const d=+raw; val = d<=10?'0–10 Days' : d<=20?'11–20 Days' : d<=30?'21–30 Days' : '30+ Days'; }
+      }
       vals[f.k]=val;
       el.value = f.money? (val?fmtMoney(val):'') : (val||'');
       el.dataset.raw = val;
@@ -1032,7 +1095,7 @@ async function inspect(id){
     }
   }
   // approval controls: only for RCA&CAPA, approver/admin, NOT own record, not already decided
-  if(current==='rcacapa' && AUTH.can('approve')){
+  if((current==='rcacapa' || current==='siteissue') && AUTH.can('approve')){
     const isOwn = CURRENT_USER && CURRENT_USER.email===r.owner;
     const decided = r.approvalStatus==='Approved' || r.approvalStatus==='Rejected';
     if(isOwn){
