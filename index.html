@@ -403,6 +403,8 @@
       </select>
       <button class="btn btn-ghost" onclick="clearFilters()" style="padding:9px 14px">Clear</button>
       <span class="spacer"></span>
+      <button class="btn btn-ghost" id="importBtn" onclick="document.getElementById('importFile').click()" style="display:none">⬆ Import CSV</button>
+      <input type="file" id="importFile" accept=".csv" style="display:none" onchange="handleImportFile(event)">
       <button class="btn btn-blue" onclick="exportExcel()">⬇ Excel</button>
       <button class="btn btn-blue" onclick="exportPDF()">⬇ PDF</button>
     </div>
@@ -451,6 +453,21 @@
     <div class="row-actions" style="margin-top:22px">
       <button class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
       <button class="btn btn-ghost" onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="importBg" onclick="if(event.target===this)closeImport()">
+  <div class="modal" style="max-width:900px;width:92vw">
+    <h3>Import CSV — Preview</h3>
+    <p id="importSummary" style="color:var(--ink-dim);font-size:.85rem;margin:6px 0 14px"></p>
+    <div id="importWarnings" style="margin-bottom:12px"></div>
+    <div class="tbl-wrap" style="max-height:50vh;overflow:auto">
+      <table id="importPreviewTable"></table>
+    </div>
+    <div class="row-actions" style="margin-top:18px">
+      <button class="btn btn-primary" id="importConfirmBtn" onclick="confirmImport()">Import Records</button>
+      <button class="btn btn-ghost" onclick="closeImport()">Cancel</button>
     </div>
   </div>
 </div>
@@ -863,6 +880,7 @@ function openCat(k){
   const canAdd = AUTH.can('add');
   $('#formCard').style.display = canAdd ? '' : 'none';
   $('#viewerNotice').style.display = canAdd ? 'none' : 'block';
+  const ib=$('#importBtn'); if(ib) ib.style.display = canAdd ? '' : 'none';
   $('#formFields').innerHTML = c.fields.map(f=>{
     if(f.type==='section') return `<div class="fld full form-section">${f.label}</div>`;
     const id = 'f_'+f.k;
@@ -1320,6 +1338,85 @@ async function exportRows(){
   ).concat(new Date(r.created_at).toLocaleString('en-IN')));
   return {headers,rows,name:c.name};
 }
+
+/* ---------------- CSV import ---------------- */
+let importRows = [];
+async function handleImportFile(event){
+  const file = event.target.files[0];
+  event.target.value = '';   // allow re-selecting the same file later
+  if(!file) return;
+  let rows;
+  try{
+    const text = await file.text();
+    const wb = XLSX.read(text, {type:'string'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+  }catch(e){ toast('Could not read that CSV file'); console.error(e); return; }
+  if(!rows || !rows.length){ toast('CSV appears empty'); return; }
+  buildImportPreview(rows);
+}
+function buildImportPreview(rows){
+  const c = CATEGORIES[current];
+  const importableFields = c.fields.filter(f=>!['serial','calc','month','section'].includes(f.type));
+  const norm = s => String(s).trim().toLowerCase();
+  const labelToField = {};
+  importableFields.forEach(f=> labelToField[norm(f.label)] = f);
+  const csvHeaders = Object.keys(rows[0]);
+  const matched = [], unmatched = [];
+  csvHeaders.forEach(h=>{
+    const f = labelToField[norm(h)];
+    if(f) matched.push({header:h, field:f}); else unmatched.push(h);
+  });
+  $('#importBg').classList.add('show');
+  if(!matched.length){
+    $('#importWarnings').innerHTML = `<div class="empty">⚠ No CSV columns matched any field in "${esc(c.name)}". Column headers must match the field labels shown in the form (e.g. "Issue ID", "Project Code").</div>`;
+    $('#importPreviewTable').innerHTML=''; $('#importSummary').textContent='';
+    $('#importConfirmBtn').disabled = true; importRows=[]; return;
+  }
+  $('#importConfirmBtn').disabled = false;
+  importRows = rows.map(r=>{
+    const rec = {};
+    matched.forEach(({header,field})=>{
+      let v = r[header]; if(v==null) v='';
+      v = String(v).trim();
+      if(field.type==='date' && v){
+        const d = new Date(v);
+        if(!isNaN(d.getTime())) v = d.toISOString().slice(0,10);
+      }
+      rec[field.k] = v;
+    });
+    return rec;
+  });
+  const reqFields = importableFields.filter(f=>f.req);
+  const missingCount = importRows.filter(rec => reqFields.some(f=>!rec[f.k])).length;
+  let warnHtml='';
+  if(unmatched.length) warnHtml += `<div class="empty" style="margin-bottom:8px">ℹ️ ${unmatched.length} column(s) not matched, will be ignored: ${unmatched.map(esc).join(', ')}</div>`;
+  if(missingCount) warnHtml += `<div class="empty" style="color:var(--warn)">⚠ ${missingCount} row(s) missing a required field — they will still import; review after.</div>`;
+  $('#importWarnings').innerHTML = warnHtml;
+  $('#importSummary').textContent = `${importRows.length} row(s) found · ${matched.length} column(s) matched to "${c.name}" fields.` + (importRows.length>50? ` (showing first 50)`:'');
+  const showRows = importRows.slice(0,50);
+  $('#importPreviewTable').innerHTML = `
+    <thead><tr>${matched.map(m=>`<th>${esc(m.field.label)}</th>`).join('')}</tr></thead>
+    <tbody>${showRows.map(rec=>`<tr>${matched.map(m=>{
+      const raw=(rec[m.field.k]==null||rec[m.field.k]==='')?'—':String(rec[m.field.k]);
+      return `<td>${esc(raw.length>40?raw.slice(0,40)+'…':raw)}</td>`;
+    }).join('')}</tr>`).join('')}</tbody>`;
+}
+function closeImport(){ $('#importBg').classList.remove('show'); importRows=[]; }
+async function confirmImport(){
+  if(!importRows.length) return;
+  const btn=$('#importConfirmBtn'); btn.disabled=true; btn.textContent='Importing…';
+  let ok=0, fail=0;
+  for(const rec of importRows){
+    try{ await DB.insert({ category: current, ...rec }); ok++; }
+    catch(e){ fail++; console.error(e); }
+  }
+  btn.disabled=false; btn.textContent='Import Records';
+  closeImport();
+  toast(`✓ Imported ${ok} record(s)` + (fail? `, ${fail} failed`:''));
+  renderTable();
+}
+
 async function exportExcel(){
   const {headers,rows,name}=await exportRows();
   if(!rows.length){ toast('No records to export'); return; }
