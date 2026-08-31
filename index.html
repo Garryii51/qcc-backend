@@ -401,6 +401,9 @@
         <option value="Actual Saving">Actual Saving</option>
         <option value="Potential Saving">Potential Saving</option>
       </select>
+      <select id="fltOwner" onchange="renderTable()" style="width:auto;display:none">
+        <option value="">All Owners</option>
+      </select>
       <button class="btn btn-ghost" onclick="clearFilters()" style="padding:9px 14px">Clear</button>
       <span class="spacer"></span>
       <button class="btn btn-ghost" id="importBtn" onclick="document.getElementById('importFile').click()" style="display:none">⬆ Import CSV</button>
@@ -429,6 +432,8 @@
         <div class="chart-box" id="box-chartCopq"><div class="chart-head"><h4>COPQ — Supplier vs Cost (₹)</h4><button class="fs-btn" title="Fullscreen" onclick="goFullscreen('box-chartCopq')">⛶</button></div><canvas id="chartCopq"></canvas></div>
         <div class="chart-box" id="box-chartCN"><div class="chart-head"><h4>Change Notes — Count per Project Code</h4><button class="fs-btn" title="Fullscreen" onclick="goFullscreen('box-chartCN')">⛶</button></div><canvas id="chartCN"></canvas></div>
         <div class="chart-box" id="box-chartGP"><div class="chart-head"><h4>Good Practices — Count per Designer</h4><button class="fs-btn" title="Fullscreen" onclick="goFullscreen('box-chartGP')">⛶</button></div><canvas id="chartGP"></canvas></div>
+        <div class="chart-box" id="box-chartCapaStatus"><div class="chart-head"><h4>RCA & CAPA — Count by Lifecycle Status</h4><button class="fs-btn" title="Fullscreen" onclick="goFullscreen('box-chartCapaStatus')">⛶</button></div><canvas id="chartCapaStatus"></canvas></div>
+        <div class="chart-box" id="box-chartCapaOwner"><div class="chart-head"><h4>RCA & CAPA — Person-wise, Open vs Closed</h4><button class="fs-btn" title="Fullscreen" onclick="goFullscreen('box-chartCapaOwner')">⛶</button></div><canvas id="chartCapaOwner"></canvas></div>
       </div>
     </div>
   </section>
@@ -790,7 +795,7 @@ const CATEGORIES = {
     fields:[
       {k:'srno',label:'S.No',type:'serial'},
       {k:'sec_hdr',label:'Header',type:'section'},
-      {k:'issueId',label:'Issue ID',type:'text'},
+      {k:'issueId',label:'Issue ID',type:'text',req:true},
       {k:'projectCode',label:'Project Code',type:'text',req:true},
       {k:'dateReported',label:'Date Reported',type:'date',req:true},
       {k:'projectPhase',label:'Project Phase',type:'select',options:PROJECT_PHASES},
@@ -904,6 +909,7 @@ function openCat(k){
   sortKey='created_at'; sortDir=-1;
   go('cat');
   recalc();
+  if(k==='rcacapa') populateOwnerFilter();
   renderTable();
 }
 
@@ -1040,6 +1046,10 @@ async function getFiltered(catKey){
     const sv=$('#fltSaving')&&$('#fltSaving').value;
     if(sv) recs=recs.filter(r=>r.savingType===sv);
   }
+  if(catKey==='rcacapa'){
+    const ov=$('#fltOwner')&&$('#fltOwner').value;
+    if(ov) recs=recs.filter(r=>r.owner===ov);
+  }
   return recs;
 }
 function clearFilters(){
@@ -1047,12 +1057,23 @@ function clearFilters(){
   if($('#fltFrom'))$('#fltFrom').value='';
   if($('#fltTo'))$('#fltTo').value='';
   if($('#fltSaving'))$('#fltSaving').value='';
+  if($('#fltOwner'))$('#fltOwner').value='';
   renderTable();
+}
+async function populateOwnerFilter(){
+  const sel=$('#fltOwner'); if(!sel) return;
+  try{
+    const all=await DB.list('rcacapa');
+    const owners=[...new Set(all.map(r=>r.owner).filter(Boolean))].sort();
+    const cur=sel.value;
+    sel.innerHTML = `<option value="">All Owners</option>` + owners.map(o=>`<option${o===cur?' selected':''}>${esc(o)}</option>`).join('');
+  }catch(e){ console.error(e); }
 }
 async function renderTable(){
   const c=CATEGORIES[current];
   // show saving-type filter only for Cost Saving
   const savSel=$('#fltSaving'); if(savSel) savSel.style.display = (current==='presale')?'':'none';
+  const ownSel=$('#fltOwner'); if(ownSel) ownSel.style.display = (current==='rcacapa')?'':'none';
   let recs;
   try{ recs=await getFiltered(current); }
   catch(e){ $('#recTable').innerHTML=`<tr><td><div class="empty">⚠ Could not load records. Is the backend running and API_BASE correct?</div></td></tr>`; console.error(e); return; }
@@ -1461,6 +1482,7 @@ async function renderStats(){
   const save=all.filter(r=>r.category==='presale');
   const cn=all.filter(r=>r.category==='changenote');
   const gp=all.filter(r=>r.category==='goodpractice');
+  const rcacapa=all.filter(r=>r.category==='rcacapa');
 
   const totalCopq=copq.reduce((s,r)=>s+(+r.totalCost||0),0);
   const actualSave=save.filter(r=>r.savingType==='Actual Saving').reduce((s,r)=>s+(+r.actualSaving||0),0);
@@ -1538,6 +1560,26 @@ async function renderStats(){
   // 5) Good Practices: designer name -> count
   const g5=groupBy(gp, r=>r.designerName, ()=>1);
   charts.gp=bar('#chartGP', g5.labels, g5.values, '#0e9f6e');
+
+  // 6) RCA & CAPA: count by lifecycle status (all stages)
+  const g6=groupBy(rcacapa, r=>r.status||'—', ()=>1);
+  charts.capaStatus=bar('#chartCapaStatus', g6.labels, g6.values, '#0891b2');
+
+  // 7) RCA & CAPA: person-wise (owner), Open vs Closed
+  const capaOwners=[...new Set(rcacapa.map(r=>r.owner||'—'))].sort();
+  const openByOwner=capaOwners.map(o=>rcacapa.filter(r=>(r.owner||'—')===o && r.status!=='Closed').length);
+  const closedByOwner=capaOwners.map(o=>rcacapa.filter(r=>(r.owner||'—')===o && r.status==='Closed').length);
+  if(charts.capaOwner) charts.capaOwner.destroy();
+  charts.capaOwner=new Chart($('#chartCapaOwner'),{type:'bar',
+    data:{labels:capaOwners,datasets:[
+      {label:'Open',data:openByOwner,backgroundColor:'#c27803',borderRadius:6},
+      {label:'Closed',data:closedByOwner,backgroundColor:'#0e9f6e',borderRadius:6}
+    ]},
+    options:{responsive:true,animation:false,layout:{padding:{top:42}},
+      plugins:{legend:{display:true,position:'top',labels:{color:'#6b7686',font:{size:11}}}},
+      scales:{x:{ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}},
+              y:{beginAtZero:true,grace:'8%',ticks:{color:'#6b7686'},grid:{color:'#eef2f9'}}}},
+    plugins:[valueLabels]});
 }
 function chartOpts(){
   return {responsive:true,animation:false,layout:{padding:{top:42}},
@@ -1603,8 +1645,8 @@ async function exportStatsPDF(){
   y=doc.lastAutoTable.finalY+6;
 
   // each chart as an image, two per row
-  const ids=['#chartCat','#chartSave','#chartCopq','#chartCN','#chartGP'];
-  const titles=['Entries per Category','Cost Saving — Actual vs Potential by Project','COPQ — Supplier vs Cost','Change Notes — Count per Project','Good Practices — Count per Designer'];
+  const ids=['#chartCat','#chartSave','#chartCopq','#chartCN','#chartGP','#chartCapaStatus','#chartCapaOwner'];
+  const titles=['Entries per Category','Cost Saving — Actual vs Potential by Project','COPQ — Supplier vs Cost','Change Notes — Count per Project','Good Practices — Count per Designer','RCA & CAPA — Count by Lifecycle Status','RCA & CAPA — Person-wise Open vs Closed'];
   const imgW=pw-28, imgH=58;
   for(let i=0;i<ids.length;i++){
     const cv=document.querySelector(ids[i]); if(!cv) continue;
