@@ -173,6 +173,10 @@
   #welcomeOverlay.show .wc-msg{transform:scale(1);opacity:1;transition-delay:.15s}
   #welcomeOverlay .wc-title{font-size:2.4rem;font-weight:800;letter-spacing:-.5px;margin-bottom:8px}
   #welcomeOverlay .wc-sub{font-size:1.05rem;font-weight:500;opacity:.92}
+  #welcomeOverlay .wc-quote{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.3);
+    max-width:420px;font-size:1rem;font-weight:600;line-height:1.5}
+  #welcomeOverlay .wc-quote-sub{font-size:.8rem;font-weight:400;font-style:italic;opacity:.85;margin-top:4px}
+  #welcomeOverlay .wc-quote-meaning{font-size:.78rem;font-weight:400;opacity:.8;margin-top:3px}
   .wc-piece{position:absolute;top:-5%;border-radius:2px;will-change:transform,opacity;animation:wc-fall linear forwards}
   .wc-burst{position:absolute;border-radius:50%;will-change:transform,opacity;animation:wc-pop .9s ease-out forwards}
   @keyframes wc-fall{
@@ -1703,6 +1707,33 @@ const OCCASIONS = {
   republic:     { title:'🇮🇳 Happy Republic Day! 🇮🇳',            colors:['#ff9933','#ffffff','#138808'],                     mode:'confetti' },
   generic:      { title:'Welcome back!',                          colors:['#0e9f6e','#3ddc97','#2563eb','#ffd166'],           mode:'confetti' }
 };
+/* Daily motivating line — same for everyone all day, changes at midnight.
+   Two are classical Sanskrit subhashitas (public domain, non-devotional,
+   about effort/duty); the rest are short original lines, not quoted from
+   any named author, in Hindi / Marathi / English. Shown on non-festival
+   days only — festival days keep just the festival message. */
+const DAILY_LINES = [
+  { lang:'sa', text:'कर्मण्येवाधिकारस्ते मा फलेषु कदाचन', translit:'Karmanye vadhikaraste, ma phaleshu kadachana', meaning:'Your right is to work, never to the fruit thereof. — Gita 2.47' },
+  { lang:'sa', text:'उद्यमेन हि सिध्यन्ति कार्याणि न मनोरथैः', translit:'Udyamena hi sidhyanti karyani na manorathaih', meaning:'Tasks are accomplished through effort, not by mere wishing.' },
+  { lang:'hi', text:'गुणवत्ता में कोई समझौता नहीं।', meaning:'No compromise on quality.' },
+  { lang:'hi', text:'मेहनत कभी बेकार नहीं जाती।', meaning:'Hard work never goes to waste.' },
+  { lang:'hi', text:'आज का काम आज ही पूरा करें।', meaning:'Complete today\u2019s work, today.' },
+  { lang:'hi', text:'टीम वर्क से हर लक्ष्य आसान होता है।', meaning:'With teamwork, every goal becomes easy.' },
+  { lang:'mr', text:'कष्टाला पर्याय नाही.', meaning:'There is no substitute for hard work.' },
+  { lang:'mr', text:'गुणवत्ता हीच आपली ओळख आहे.', meaning:'Quality is our identity.' },
+  { lang:'mr', text:'एकी हेच बळ.', meaning:'Unity is strength.' },
+  { lang:'mr', text:'प्रत्येक दिवस नवीन संधी घेऊन येतो.', meaning:'Every day brings a new opportunity.' },
+  { lang:'en', text:'Quality isn\u2019t an accident — it comes from careful, consistent effort.' },
+  { lang:'en', text:'Small, consistent steps build big achievements.' },
+  { lang:'en', text:'A safe process today prevents a costly problem tomorrow.' },
+  { lang:'en', text:'Precision today, confidence tomorrow.' }
+];
+function getTodayLine(){
+  const now=new Date();
+  const start=new Date(now.getFullYear(),0,0);
+  const dayOfYear=Math.floor((now-start)/86400000);
+  return DAILY_LINES[dayOfYear % DAILY_LINES.length];
+}
 function getTodayOccasion(){
   const now=new Date();
   const y=now.getFullYear();
@@ -1752,7 +1783,12 @@ function showWelcomeAnimation(){
       piecesHtml += `<div class="wc-burst" style="left:${left}%;top:${top}%;width:${size}px;height:${size}px;background:radial-gradient(circle, ${color} 0%, transparent 70%);animation-delay:${delay}s"></div>`;
     }
   }
-  ov.innerHTML = piecesHtml + `<div class="wc-msg"><div class="wc-title">${occ.title}</div>${sub?`<div class="wc-sub">${esc(sub)}</div>`:''}</div>`;
+  let quoteHtml='';
+  if(occKey==='generic'){
+    const line=getTodayLine();
+    quoteHtml = `<div class="wc-quote">${esc(line.text)}${line.translit?`<div class="wc-quote-sub">${esc(line.translit)}</div>`:''}${line.meaning?`<div class="wc-quote-meaning">${esc(line.meaning)}</div>`:''}</div>`;
+  }
+  ov.innerHTML = piecesHtml + `<div class="wc-msg"><div class="wc-title">${occ.title}</div>${sub?`<div class="wc-sub">${esc(sub)}</div>`:''}${quoteHtml}</div>`;
   document.body.appendChild(ov);
   requestAnimationFrame(()=>{ requestAnimationFrame(()=> ov.classList.add('show')); });
 
@@ -1762,7 +1798,7 @@ function showWelcomeAnimation(){
     setTimeout(()=> ov.remove(), 550);
   };
   ov.addEventListener('click', remove);   // interactive: click anywhere to dismiss early
-  setTimeout(remove, 3600);               // auto-dismiss
+  setTimeout(remove, occKey==='generic' ? 4800 : 3600);   // a little longer when there's a line to read
 }
 
 async function doLogin(){
