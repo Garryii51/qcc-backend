@@ -163,6 +163,27 @@
   /* faint electrical layer behind the app after login */
   body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%232563eb' stroke-width='1.5'%3E%3Cpath d='M0 60H80Q100 60 100 80V140H180'/%3E%3Cpath d='M0 120H60Q80 120 80 100V40H160'/%3E%3Ccircle cx='100' cy='80' r='3' fill='%232563eb'/%3E%3Ccircle cx='80' cy='100' r='3' fill='%232563eb'/%3E%3Crect x='150' y='30' width='30' height='18' rx='2'/%3E%3Cpolyline points='180,140 188,140 192,132 200,148 208,132 216,148 220,140 240,140'/%3E%3C/g%3E%3C/svg%3E")}
+  /* ---- post-login welcome celebration ---- */
+  #welcomeOverlay{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;opacity:0;transition:opacity .5s ease;pointer-events:none;overflow:hidden}
+  #welcomeOverlay.show{opacity:1;pointer-events:auto}
+  #welcomeOverlay.fade-out{opacity:0}
+  #welcomeOverlay .wc-msg{position:relative;z-index:2;text-align:center;color:#fff;
+    text-shadow:0 3px 18px rgba(0,0,0,.35);transform:scale(.85);opacity:0;transition:transform .5s cubic-bezier(.34,1.56,.64,1),opacity .5s ease}
+  #welcomeOverlay.show .wc-msg{transform:scale(1);opacity:1;transition-delay:.15s}
+  #welcomeOverlay .wc-title{font-size:2.4rem;font-weight:800;letter-spacing:-.5px;margin-bottom:8px}
+  #welcomeOverlay .wc-sub{font-size:1.05rem;font-weight:500;opacity:.92}
+  .wc-piece{position:absolute;top:-5%;border-radius:2px;will-change:transform,opacity;animation:wc-fall linear forwards}
+  .wc-burst{position:absolute;border-radius:50%;will-change:transform,opacity;animation:wc-pop .9s ease-out forwards}
+  @keyframes wc-fall{
+    0%{transform:translateY(0) translateX(0) rotate(0deg);opacity:1}
+    100%{transform:translateY(115vh) translateX(var(--drift,0px)) rotate(var(--spin,360deg));opacity:.9}
+  }
+  @keyframes wc-pop{
+    0%{transform:scale(0);opacity:1}
+    70%{transform:scale(1.5);opacity:.8}
+    100%{transform:scale(2.2);opacity:0}
+  }
 </style>
 </head>
 <body>
@@ -1664,6 +1685,86 @@ async function exportStatsPDF(){
 function showLogin(){ const s=document.getElementById('loginScreen'); if(s) s.style.display='flex'; const e=document.getElementById('loginEmail'); if(e) e.focus(); }
 function hideLogin(){ const s=document.getElementById('loginScreen'); if(s) s.style.display='none'; }
 
+/* ============================================================
+   POST-LOGIN WELCOME CELEBRATION — festival-aware, else generic.
+   Diwali/Holi shift every year (lunar calendar), so their dates
+   are looked up from a small table rather than computed. Add
+   future years here as needed.
+   ============================================================ */
+const FESTIVAL_DATES = {
+  diwali: {2026:'2026-11-08', 2027:'2027-10-29', 2028:'2028-10-17', 2029:'2029-11-05', 2030:'2030-10-26'},
+  holi:   {2026:'2026-03-04', 2027:'2027-03-23', 2028:'2028-03-11', 2029:'2029-03-01'}
+};
+const OCCASIONS = {
+  diwali:       { title:'✨ Happy Diwali! ✨',                    colors:['#ffb703','#fb8500','#ffd166','#e63946'],           mode:'burst' },
+  holi:         { title:'🎨 Happy Holi! 🎨',                     colors:['#ff006e','#3a86ff','#ffbe0b','#8338ec','#06d6a0'], mode:'confetti' },
+  newyear:      { title:'🎉 Happy New Year! 🎉',                 colors:['#ffd700','#c0c0c0','#ffffff','#f4a300'],           mode:'burst' },
+  independence: { title:'🇮🇳 Happy Independence Day! 🇮🇳',        colors:['#ff9933','#ffffff','#138808'],                     mode:'confetti' },
+  republic:     { title:'🇮🇳 Happy Republic Day! 🇮🇳',            colors:['#ff9933','#ffffff','#138808'],                     mode:'confetti' },
+  generic:      { title:'Welcome back!',                          colors:['#0e9f6e','#3ddc97','#2563eb','#ffd166'],           mode:'confetti' }
+};
+function getTodayOccasion(){
+  const now=new Date();
+  const y=now.getFullYear();
+  const pad=n=>String(n).padStart(2,'0');
+  const mmdd=`${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const fixed={ '01-01':'newyear', '01-26':'republic', '08-15':'independence' };
+  if(fixed[mmdd]) return fixed[mmdd];
+  const within=(dateStr,windowDays=1)=>{
+    if(!dateStr) return false;
+    const target=new Date(dateStr+'T00:00:00');
+    const todayMid=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    return Math.abs(Math.round((todayMid-target)/86400000))<=windowDays;
+  };
+  if(within(FESTIVAL_DATES.diwali[y])) return 'diwali';
+  if(within(FESTIVAL_DATES.holi[y])) return 'holi';
+  return null;   // no occasion today -> generic welcome
+}
+function showWelcomeAnimation(){
+  const occKey = getTodayOccasion() || 'generic';
+  const occ = OCCASIONS[occKey];
+  const name = (CURRENT_USER && CURRENT_USER.email) ? CURRENT_USER.email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : '';
+  const sub = occKey==='generic' ? (name? `Good to see you, ${name}.` : 'Good to see you.') : (name? `Wishing you a great day, ${name}!` : '');
+
+  const ov=document.createElement('div');
+  ov.id='welcomeOverlay';
+  ov.style.background = occKey==='generic'
+    ? 'radial-gradient(circle at 50% 40%, rgba(14,159,110,.35), rgba(15,23,42,.75))'
+    : 'radial-gradient(circle at 50% 40%, rgba(0,0,0,.25), rgba(0,0,0,.65))';
+
+  const pieceCount = occ.mode==='confetti' ? 70 : 24;
+  let piecesHtml='';
+  for(let i=0;i<pieceCount;i++){
+    const color = occ.colors[i % occ.colors.length];
+    if(occ.mode==='confetti'){
+      const left=(Math.random()*100).toFixed(1);
+      const w=(6+Math.random()*7).toFixed(1);
+      const dur=(2.6+Math.random()*1.8).toFixed(2);
+      const delay=(Math.random()*0.6).toFixed(2);
+      const drift=(Math.random()*160-80).toFixed(0)+'px';
+      const spin=(360*(Math.random()>0.5?1:-1)*(1+Math.random())).toFixed(0)+'deg';
+      piecesHtml += `<div class="wc-piece" style="left:${left}%;width:${w}px;height:${(w*0.4).toFixed(1)}px;background:${color};animation-duration:${dur}s;animation-delay:${delay}s;--drift:${drift};--spin:${spin}"></div>`;
+    } else {
+      const left=(10+Math.random()*80).toFixed(1);
+      const top=(15+Math.random()*55).toFixed(1);
+      const size=(40+Math.random()*70).toFixed(0);
+      const delay=(Math.random()*1.4).toFixed(2);
+      piecesHtml += `<div class="wc-burst" style="left:${left}%;top:${top}%;width:${size}px;height:${size}px;background:radial-gradient(circle, ${color} 0%, transparent 70%);animation-delay:${delay}s"></div>`;
+    }
+  }
+  ov.innerHTML = piecesHtml + `<div class="wc-msg"><div class="wc-title">${occ.title}</div>${sub?`<div class="wc-sub">${esc(sub)}</div>`:''}</div>`;
+  document.body.appendChild(ov);
+  requestAnimationFrame(()=>{ requestAnimationFrame(()=> ov.classList.add('show')); });
+
+  const remove=()=>{
+    if(ov._removed) return; ov._removed=true;
+    ov.classList.add('fade-out'); ov.classList.remove('show');
+    setTimeout(()=> ov.remove(), 550);
+  };
+  ov.addEventListener('click', remove);   // interactive: click anywhere to dismiss early
+  setTimeout(remove, 3600);               // auto-dismiss
+}
+
 async function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pw=document.getElementById('loginPw').value;
@@ -1676,6 +1777,7 @@ async function doLogin(){
     document.getElementById('nav-user').textContent = CURRENT_USER.email + ' · ' + CURRENT_USER.role;
     hideLogin();
     renderCatGrid();
+    showWelcomeAnimation();
   }catch(e){
     err.textContent = (e && e.message && /invalid|credential/i.test(e.message)) ? 'Incorrect email or password.' : 'Sign-in failed. Check connection and try again.';
   }finally{
