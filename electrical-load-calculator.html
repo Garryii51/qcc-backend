@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel Load Calculator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<style>
+  :root{
+    --navy:#1F4E78;
+    --navy-dark:#153955;
+    --ink:#1B2430;
+    --slate:#5B6B7C;
+    --line:#DCE2E8;
+    --bg:#F4F6F8;
+    --card:#FFFFFF;
+    --amber:#B8860B;
+    --pass-bg:#E4F5E9; --pass-fg:#1E7A3C;
+    --fail-bg:#FBE7E7; --fail-fg:#B3261E;
+    --input-bg:#FFFDF2; --input-line:#E8D98A;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:"Segoe UI",Roboto,-apple-system,Arial,sans-serif;
+    color:var(--ink);
+    background:var(--bg);
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+  }
+  header{
+    background:linear-gradient(180deg,var(--navy),var(--navy-dark));
+    color:#fff;
+    padding:14px 22px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    box-shadow:0 2px 6px rgba(0,0,0,.15);
+  }
+  header .brand{display:flex;align-items:baseline;gap:10px;}
+  header h1{font-size:18px;margin:0;font-weight:600;letter-spacing:.2px;}
+  header .subtitle{font-size:12px;color:#C9D6E3;}
+  .top-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:1px solid transparent;
+    border-radius:5px;
+    padding:7px 12px;
+    font-size:12.5px;
+    font-weight:600;
+    transition:background .12s, border-color .12s;
+  }
+  .btn-primary{background:#fff;color:var(--navy-dark);}
+  .btn-primary:hover{background:#EAF1F8;}
+  .btn-ghost{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.35);}
+  .btn-ghost:hover{background:rgba(255,255,255,.18);}
+  .btn-outline{background:#fff;color:var(--navy);border-color:var(--line);}
+  .btn-outline:hover{background:#EFF3F7;}
+  .btn-danger{background:#fff;color:var(--fail-fg);border-color:#EFC9C7;}
+  .btn-danger:hover{background:var(--fail-bg);}
+  .btn-sm{padding:4px 9px;font-size:11.5px;}
+
+  .layout{display:flex;flex:1;min-height:0;}
+  nav.sidebar{
+    width:220px;
+    background:#fff;
+    border-right:1px solid var(--line);
+    padding:14px 10px;
+    overflow-y:auto;
+    flex-shrink:0;
+  }
+  nav.sidebar h2{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--slate);margin:4px 8px 10px;font-weight:700;}
+  .panel-tab{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:9px 10px;border-radius:6px;margin-bottom:4px;cursor:pointer;
+    font-size:13.5px;font-weight:600;color:var(--ink);
+    border:1px solid transparent;
+  }
+  .panel-tab:hover{background:#F1F4F7;}
+  .panel-tab.active{background:#E9F0F7;border-color:#C9DAEA;color:var(--navy-dark);}
+  .panel-tab .tag{font-variant-numeric:tabular-nums;}
+  .panel-tab .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-left:6px;}
+  .status-dot.pass{background:var(--pass-fg);}
+  .status-dot.fail{background:var(--fail-fg);}
+  .add-panel-btn{width:100%;margin-top:6px;}
+
+  main{flex:1;overflow-y:auto;padding:22px 26px 60px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:18px;}
+  .card h3{margin:0 0 4px;font-size:14px;color:var(--navy-dark);}
+  .card .card-sub{font-size:12px;color:var(--slate);margin-bottom:14px;}
+
+  .panel-header-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:16px;}
+  .panel-title-inputs{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:3px;}
+  .field label{font-size:11px;color:var(--slate);font-weight:600;}
+  .field input, .field select{
+    font-family:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:5px;
+    background:#fff;color:var(--ink);
+  }
+  .field input.tag-input{width:90px;font-weight:700;}
+  .field input.name-input{width:230px;}
+
+  table{border-collapse:collapse;width:100%;font-size:12.5px;}
+  th{
+    background:var(--navy);color:#fff;font-weight:600;text-align:center;
+    padding:8px 6px;font-size:11px;line-height:1.25;
+  }
+  td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:center;}
+  td.desc-cell{text-align:left;}
+  tr:hover td{background:#FAFBFC;}
+  input.cell-input{
+    width:100%;border:1px solid transparent;background:var(--input-bg);
+    padding:4px 5px;border-radius:4px;font-size:12.5px;text-align:center;font-family:inherit;
+  }
+  input.cell-input:focus{outline:none;border-color:var(--navy);background:#fff;}
+  input.desc-input{text-align:left;background:transparent;border:none;}
+  input.desc-input:focus{background:var(--input-bg);}
+  select.cell-input{background:var(--input-bg);}
+  .readonly-cell{color:var(--slate);font-variant-numeric:tabular-nums;}
+  .row-del{background:none;border:none;color:var(--fail-fg);cursor:pointer;font-size:15px;padding:2px 6px;}
+  .row-del:hover{background:var(--fail-bg);border-radius:4px;}
+
+  .table-scroll{overflow-x:auto;}
+  .add-row-btn{margin-top:10px;}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media (max-width:900px){.grid-2{grid-template-columns:1fr;}}
+
+  .stat-list{display:flex;flex-direction:column;gap:0;}
+  .stat-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line);}
+  .stat-row:last-child{border-bottom:none;}
+  .stat-label{font-size:12.5px;color:var(--slate);}
+  .stat-value{font-size:14.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .stat-value.big{font-size:19px;color:var(--navy-dark);}
+  .stat-note{font-size:10.5px;color:var(--slate);max-width:230px;text-align:right;line-height:1.3;}
+
+  .input-inline{width:80px;text-align:right;border:1px solid var(--line);background:var(--input-bg);
+    padding:4px 6px;border-radius:4px;font-family:inherit;font-size:13px;}
+
+  .verdict{display:inline-block;padding:5px 14px;border-radius:14px;font-weight:700;font-size:13px;letter-spacing:.3px;}
+  .verdict.pass{background:var(--pass-bg);color:var(--pass-fg);}
+  .verdict.fail{background:var(--fail-bg);color:var(--fail-fg);}
+
+  .export-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+  footer{
+    text-align:center;font-size:11px;color:var(--slate);padding:14px;border-top:1px solid var(--line);background:#fff;
+  }
+  .empty-state{padding:60px 20px;text-align:center;color:var(--slate);}
+  .empty-state button{margin-top:14px;}
+
+  .info-icon{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:14px;height:14px;border-radius:50%;background:#DCE6F0;color:var(--navy-dark);
+    font-size:9px;font-weight:800;margin-left:5px;cursor:help;position:relative;
+    vertical-align:middle;font-style:normal;line-height:1;
+  }
+  .info-icon .tip{
+    visibility:hidden;opacity:0;pointer-events:none;
+    transition:opacity .12s ease;
+    position:absolute;bottom:135%;left:50%;transform:translateX(-50%);
+    background:#1B2430;color:#EAF1F8;padding:9px 11px;border-radius:7px;
+    font-size:11px;font-weight:400;line-height:1.45;width:230px;text-align:left;
+    z-index:80;box-shadow:0 6px 16px rgba(0,0,0,.28);
+  }
+  .info-icon .tip::after{
+    content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    border:5px solid transparent;border-top-color:#1B2430;
+  }
+  .info-icon:hover .tip, .info-icon:focus .tip, .info-icon.active .tip{visibility:visible;opacity:1;}
+  .info-icon .tip .f{display:block;font-family:"Consolas","Courier New",monospace;color:#9FD3FF;margin-bottom:5px;font-size:10.5px;}
+  .info-icon .tip .s{display:block;color:#AEC3D6;font-size:10px;}
+  th .info-icon .tip{ font-weight:400; }
+  .standards-card ul{margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--slate);line-height:1.7;}
+  .standards-card li b{color:var(--ink);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Panel Load Calculator</h1>
+    <span class="subtitle">Load schedule &amp; main incomer sizing — per control panel</span>
+  </div>
+  <div class="top-actions">
+    <button class="btn-ghost" id="btnExportProject">Save project (.json)</button>
+    <button class="btn-ghost" id="btnImportProject">Load project (.json)</button>
+    <input type="file" id="fileImport" accept="application/json" style="display:none">
+    <button class="btn-primary" id="btnExportAllExcel">Export all panels (Excel)</button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar">
+    <h2>Panels</h2>
+    <div id="panelTabs"></div>
+    <button class="btn-outline add-panel-btn" id="btnAddPanel">+ Add panel</button>
+  </nav>
+
+  <main id="mainArea"></main>
+</div>
+
+<footer>Panel Load Calculator — offline, single-file tool. All calculations run in your browser; nothing is uploaded. Use "Save project" regularly to keep your work.</footer>
+
+<script>
+/* ============================= DATA MODEL ============================= */
+
+const STD_MCCB_SIZES = [16,20,25,32,40,50,63,80,100,125,160,200,250,320,400,500,630,800,1000,1250,1600];
+const STD_UPS_KVA = [0.5,0.6,1,1.5,2,3,5,6,7.5,10,15,20,25,30,40,50,60,80,100];
+const STD_CABLE_SIZES = [1.5,2.5,4,6,10,16,25,35,50,70,95,120,150,185,240,300,400];
+// Reference current-carrying capacity, Io (A) — PVC insulated copper, 3-core/multicore cable,
+// Installation Method C (clipped direct / on tray), 30 deg C ambient. Typical published values —
+// confirm against the exact IEC 60364-5-52 table edition for your insulation/method before final sign-off.
+const CABLE_IO_TABLE = {1.5:17.5,2.5:24,4:32,6:41,10:57,16:76,25:101,35:125,50:151,70:192,95:232,120:269,150:300,185:341,240:400,300:458,400:546};
+
+function newRow(desc, qty, p, eff, pf, phase, override, upsBackup){
+  return { id: crypto.randomUUID(), desc: desc||"New load", qty: qty??1, p: p??1, eff: eff??1, pf: pf??0.9, phase: phase??3, override: override??"", upsBackup: upsBackup??false };
+}
+
+function defaultRows(){
+  return [
+    newRow("VFD-1 (Conveyor motor drive)", 1, 15, 0.97, 0.95, 3, "", false),
+    newRow("SMPS - Panel (24VDC control supply)", 1, 0.48, 0.85, 0.90, 1, "", true),
+    newRow("SMPS - Field (24VDC field devices)", 1, 0.96, 0.85, 0.90, 1, "", true),
+    newRow("Control Transformer, CPT (415/230-110V)", 1, 1.0, 1.00, 0.95, 1, "", true),
+    newRow("Panel Air Conditioner (cooling)", 1, 1.5, 1.00, 0.80, 3, "", false),
+  ];
+}
+
+function newPanel(tag){
+  return {
+    id: crypto.randomUUID(),
+    tag: tag || "CP01",
+    name: "",
+    preparedBy: "",
+    revision: "A",
+    systemV: 415,
+    systemVph: 230,
+    diversity: 0.85,
+    marginFactor: 1.25,
+    requiredIcu: 25,
+    selectedBreakerIcu: 25,
+    rows: defaultRows(),
+    ups: {
+      marginFactor: 1.25,
+      efficiency: 0.90,
+      cableCa: 0.87,
+      cableCg: 1.00,
+    },
+  };
+}
+
+function newCombinedSettings(){
+  return {
+    systemV: 415,
+    diversity: 0.9,
+    marginFactor: 1.25,
+    requiredIcu: 35,
+    selectedBreakerIcu: 35,
+    name: "Main Power / Distribution Panel",
+    preparedBy: "",
+    revision: "A",
+  };
+}
+
+const COMBINED_ID = "__COMBINED__";
+
+let state = {
+  panels: [ newPanel("CP01") ],
+  activePanelId: null,
+  combined: newCombinedSettings(),
+};
+state.activePanelId = state.panels[0].id;
+
+/* ============================= CALCULATIONS ============================= */
+
+function calcRow(row, systemV, systemVph){
+  const qty = Number(row.qty)||0;
+  const p = Number(row.p)||0;
+  const eff = Number(row.eff)||1;
+  const pf = Number(row.pf)||1;
+  const inputPower = eff>0 ? p/eff : 0;          // kW
+  const kva = pf>0 ? inputPower/pf : 0;           // kVA per unit
+  let uflc;
+  if (row.override !== "" && row.override !== null && !isNaN(Number(row.override))){
+    uflc = Number(row.override);
+  } else if (Number(row.phase) === 3){
+    uflc = systemV>0 ? (kva*1000)/(Math.sqrt(3)*systemV) : 0;
+  } else {
+    uflc = systemVph>0 ? (kva*1000)/systemVph : 0;
+  }
+  const rowTotalCurrent = qty*uflc;
+  const rowKVA = qty*kva;
+  const rowKW = qty*inputPower;
+  return { inputPower, kva, uflc, rowTotalCurrent, rowKVA, rowKW };
+}
+
+function calcPanel(panel){
+  const rowCalcs = panel.rows.map(r => calcRow(r, Number(panel.systemV), Number(panel.systemVph)));
+  const totalKW = rowCalcs.reduce((s,c)=>s+c.rowKW,0);
+  const totalKVA = rowCalcs.reduce((s,c)=>s+c.rowKVA,0);
+  const V = Number(panel.systemV)||1;
+  const fullLoadCurrent = (totalKVA*1000)/(Math.sqrt(3)*V);   // Ib
+  const nominalCurrent = fullLoadCurrent*(Number(panel.diversity)||1);
+  const requiredIncomer = fullLoadCurrent*(Number(panel.marginFactor)||1);
+  const selectedBreaker = STD_MCCB_SIZES.find(s => s >= requiredIncomer) ?? STD_MCCB_SIZES[STD_MCCB_SIZES.length-1];
+  const icuPass = Number(panel.selectedBreakerIcu) >= Number(panel.requiredIcu);
+  const ratingPass = selectedBreaker >= requiredIncomer;
+  const overallPass = icuPass && ratingPass;
+  return { rowCalcs, totalKW, totalKVA, fullLoadCurrent, nominalCurrent, requiredIncomer, selectedBreaker, icuPass, ratingPass, overallPass };
+}
+
+function pickCableSize(requiredIb, Ca, Cg){
+  for (const size of STD_CABLE_SIZES){
+    const Io = CABLE_IO_TABLE[size];
+    const Iz = Io*(Number(Ca)||1)*(Number(Cg)||1);
+    if (Iz >= requiredIb) return { size, Io, Iz };
+  }
+  const maxSize = STD_CABLE_SIZES[STD_CABLE_SIZES.length-1];
+  const Io = CABLE_IO_TABLE[maxSize];
+  return { size: maxSize, Io, Iz: Io*(Number(Ca)||1)*(Number(Cg)||1) };
+}
+
+function calcUPS(panel, panelResults){
+  const u = panel.ups;
+  const Vph = Number(panel.systemVph)||230;
+  const backedRows = panel.rows.map((row,idx)=>({row, calc: panelResults.rowCalcs[idx]})).filter(x=>x.row.upsBackup);
+  const upsLoadKVA = backedRows.reduce((s,x)=>s+x.calc.rowKVA, 0);
+  const upsLoadKW = backedRows.reduce((s,x)=>s+x.calc.rowKW, 0);
+  const upsLoadCurrent = Vph>0 ? (upsLoadKVA*1000)/Vph : 0;   // single-phase control-circuit current
+
+  const requiredUPSkVA = upsLoadKVA*(Number(u.marginFactor)||1);
+  const selectedUPSkVA = STD_UPS_KVA.find(s => s >= requiredUPSkVA) ?? STD_UPS_KVA[STD_UPS_KVA.length-1];
+  const ratingPass = selectedUPSkVA >= requiredUPSkVA;
+
+  const outputCurrent = Vph>0 ? (selectedUPSkVA*1000)/Vph : 0;                       // UPS -> control circuit
+  const eff = Number(u.efficiency)||1;
+  const inputCurrent = (Vph>0 && eff>0) ? (selectedUPSkVA*1000)/(Vph*eff) : 0;         // mains -> UPS
+
+  const outputCable = pickCableSize(outputCurrent, u.cableCa, u.cableCg);
+  const inputCable = pickCableSize(inputCurrent, u.cableCa, u.cableCg);
+
+  return {
+    backedRows, upsLoadKVA, upsLoadKW, upsLoadCurrent,
+    requiredUPSkVA, selectedUPSkVA, ratingPass,
+    outputCurrent, inputCurrent, outputCable, inputCable,
+  };
+}
+
+function calcCombined(){
+  const perPanel = state.panels.map(p => ({ panel:p, results: calcPanel(p) }));
+  perPanel.forEach(x => { x.ups = calcUPS(x.panel, x.results); });
+  const totalKW = perPanel.reduce((s,x)=>s+x.results.totalKW, 0);
+  const totalKVA = perPanel.reduce((s,x)=>s+x.results.totalKVA, 0);
+  const totalUpsKVA = perPanel.reduce((s,x)=>s+x.ups.upsLoadKVA, 0);
+  const V = Number(state.combined.systemV)||1;
+  const fullLoadCurrent = (totalKVA*1000)/(Math.sqrt(3)*V);   // Ib for the main power panel
+  const nominalCurrent = fullLoadCurrent*(Number(state.combined.diversity)||1);
+  const requiredIncomer = fullLoadCurrent*(Number(state.combined.marginFactor)||1);
+  const selectedBreaker = STD_MCCB_SIZES.find(s => s >= requiredIncomer) ?? STD_MCCB_SIZES[STD_MCCB_SIZES.length-1];
+  const icuPass = Number(state.combined.selectedBreakerIcu) >= Number(state.combined.requiredIcu);
+  const ratingPass = selectedBreaker >= requiredIncomer;
+  const overallPass = icuPass && ratingPass;
+  return { perPanel, totalKW, totalKVA, totalUpsKVA, fullLoadCurrent, nominalCurrent, requiredIncomer, selectedBreaker, icuPass, ratingPass, overallPass };
+}
+
+/* ============================= RENDERING ============================= */
+
+function fmt(n, dp=2){
+  if (n===undefined || n===null || isNaN(n)) return "-";
+  return Number(n).toLocaleString(undefined,{minimumFractionDigits:dp, maximumFractionDigits:dp});
+}
+
+function getActivePanel(){
+  return state.panels.find(p=>p.id===state.activePanelId);
+}
+
+function renderSidebar(){
+  const wrap = document.getElementById("panelTabs");
+  wrap.innerHTML = "";
+
+  const combinedResults = calcCombined();
+  const cTab = document.createElement("div");
+  cTab.className = "panel-tab combined-tab" + (state.activePanelId===COMBINED_ID ? " active":"");
+  cTab.innerHTML = `<span class="tag">⚡ Power Panel</span><span class="status-dot ${combinedResults.overallPass?'pass':'fail'}"></span>`;
+  cTab.title = "Combined load of all panels";
+  cTab.onclick = ()=>{ state.activePanelId = COMBINED_ID; renderAll(); };
+  wrap.appendChild(cTab);
+
+  const divider = document.createElement("div");
+  divider.style.cssText = "height:1px;background:var(--line);margin:8px 2px 10px;";
+  wrap.appendChild(divider);
+
+  state.panels.forEach(p=>{
+    const results = calcPanel(p);
+    const tab = document.createElement("div");
+    tab.className = "panel-tab" + (p.id===state.activePanelId ? " active":"");
+    tab.innerHTML = `<span class="tag">${escapeHtml(p.tag)}</span><span class="status-dot ${results.overallPass?'pass':'fail'}"></span>`;
+    tab.title = p.name || p.tag;
+    tab.onclick = ()=>{ state.activePanelId = p.id; renderAll(); };
+    wrap.appendChild(tab);
+  });
+}
+
+function escapeHtml(s){
+  return String(s??"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ============================= FORMULA / STANDARDS REFERENCE ============================= */
+
+const FORMULA_REF = {
+  inputPower:   { f: "Input Power (kW) = P / eta", s: "Basic efficiency relation — accounts for conversion/motor losses." },
+  apparentPower:{ f: "Apparent Power (kVA) = Input Power / PF", s: "S = P / cos(phi) — standard AC power-triangle relation." },
+  unitFLC:      { f: "3-phase: I = (kVA x 1000) / (sqrt(3) x V)\n1-phase: I = (kVA x 1000) / Vph", s: "IEC 60364 — load current derived from apparent power." },
+  rowTotal:     { f: "Row Total Current (A) = Qty x Unit FLC", s: "Multiple identical units drawing current in parallel." },
+  totalKW:      { f: "Total kW = sum(Qty x Input Power)", s: "Sum across every row in the load schedule." },
+  totalKVA:     { f: "Total kVA = sum(Qty x Apparent Power)", s: "Sum across every row in the load schedule." },
+  flc:          { f: "Ib = (Total kVA x 1000) / (sqrt(3) x V)", s: "IEC 60909 / IEC 60364 — balanced 3-phase incomer current from total connected apparent load." },
+  nominal:      { f: "Nominal Current = Ib x Diversity Factor", s: "IEC 60364-1 — demand/diversity factor for realistic, non-coincident loading." },
+  reqIncomer:   { f: "Required In = Ib x Margin Factor (typ. 1.25)", s: "IEC 60364-4-43 — In >= 1.25 x Ib for continuous-duty circuits with non-adjustable protective devices." },
+  selBreaker:   { f: "Smallest standard MCCB frame >= Required In", s: "IEC 60947-2 — standard MCCB frame / rating steps." },
+  upsLoadKVA:   { f: "UPS Load (kVA) = sum of Apparent Power for rows tagged \"UPS backup\"", s: "Only single-phase control-circuit loads count — not 3-phase power loads like a VFD." },
+  upsLoadCurrent:{ f: "UPS Load Current (A) = (UPS Load kVA x 1000) / Vph", s: "Single-phase current at the control-circuit reference voltage." },
+  reqUPS:       { f: "Required UPS (kVA) = UPS Load kVA x Margin Factor", s: "Sizing margin for future load growth and switch-on inrush headroom." },
+  selUPS:       { f: "Smallest standard UPS rating >= Required UPS", s: "Standard UPS kVA steps, 0.5 - 100 kVA." },
+  upsOutput:    { f: "Output Current (A) = (Selected UPS kVA x 1000) / Vph", s: "Current the UPS delivers to the control circuit at its full rating." },
+  upsInput:     { f: "Input Current (A) = (Selected UPS kVA x 1000) / (Vph x eta)", s: "Raw mains draw into the UPS, factoring its conversion efficiency (eta)." },
+  cable:        { f: "Iz = Io x Ca x Cg\ncable is OK when Iz >= Ib", s: "IEC 60364-5-52 — cable current-carrying capacity with ambient (Ca) and grouping (Cg) correction factors." },
+  tableTotalCurrent: { f: "Sum of each row's own current: sum(Row Total Current)", s: "Quick-reference sum only. The incomer's real Full Load Current (Ib), shown below, is derived from total kVA for a properly balanced 3-phase figure — not a plain sum, since rows mix 1-phase and 3-phase currents at different voltage bases." },
+};
+
+function ic(key){
+  const ref = FORMULA_REF[key];
+  if (!ref) return "";
+  const fLines = escapeHtml(ref.f).replace(/\n/g,"<br>");
+  return `<span class="info-icon" tabindex="0">i<span class="tip"><span class="f">${fLines}</span><span class="s">${escapeHtml(ref.s)}</span></span></span>`;
+}
+
+document.addEventListener("click", (e)=>{
+  const icon = e.target.closest(".info-icon");
+  document.querySelectorAll(".info-icon.active").forEach(el=>{ if (el!==icon) el.classList.remove("active"); });
+  if (icon){ icon.classList.toggle("active"); e.stopPropagation(); }
+});
+
+function renderMain(){
+  const main = document.getElementById("mainArea");
+  if (state.activePanelId === COMBINED_ID){
+    renderCombinedMain();
+    return;
+  }
+  const panel = getActivePanel();
+  if (!panel){
+    main.innerHTML = `<div class="empty-state"><p>No panel selected.</p><button class="btn-primary" id="emptyAdd">+ Add a panel</button></div>`;
+    document.getElementById("emptyAdd").onclick = addPanel;
+    return;
+  }
+  const r = calcPanel(panel);
+  const u = calcUPS(panel, r);
+
+  main.innerHTML = `
+    <div class="card">
+      <div class="panel-header-row">
+        <div class="panel-title-inputs">
+          <div class="field"><label>Panel tag</label><input class="tag-input" id="f_tag" value="${escapeHtml(panel.tag)}"></div>
+          <div class="field"><label>Panel description</label><input class="name-input" id="f_name" value="${escapeHtml(panel.name)}" placeholder="e.g. Conveyor Line 2 Control Panel"></div>
+          <div class="field"><label>Prepared by</label><input id="f_prep" value="${escapeHtml(panel.preparedBy)}" style="width:140px"></div>
+          <div class="field"><label>Revision</label><input id="f_rev" value="${escapeHtml(panel.revision)}" style="width:60px"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <button class="btn-danger btn-sm" id="btnDeletePanel">Delete panel</button>
+        </div>
+      </div>
+      <div class="panel-title-inputs">
+        <div class="field"><label>System voltage, V (line-line)</label><input type="number" id="f_v" value="${panel.systemV}" style="width:90px"></div>
+        <div class="field"><label>1-phase ref. voltage, Vph</label><input type="number" id="f_vph" value="${panel.systemVph}" style="width:90px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Load schedule</h3>
+      <div class="card-sub">One row per component. "Vendor FLC override" wins over the calculated current when filled in — use it whenever you have a manufacturer datasheet current (VFDs especially).</div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th style="width:26px">#</th>
+            <th style="min-width:200px;text-align:left;padding-left:8px">Component / tag</th>
+            <th style="width:52px">Qty</th>
+            <th style="width:70px">Rated<br>power P (kW)</th>
+            <th style="width:60px">Eff. &eta;</th>
+            <th style="width:55px">PF</th>
+            <th style="width:55px">Phase</th>
+            <th style="width:80px">Vendor FLC<br>override (A)</th>
+            <th style="width:75px">Input power<br>(kW)${ic('inputPower')}</th>
+            <th style="width:80px">Apparent power<br>(kVA)${ic('apparentPower')}</th>
+            <th style="width:70px">Unit FLC<br>(A)${ic('unitFLC')}</th>
+            
+            <th style="width:75px">Total<br>current (A)${ic('rowTotal')}<br><span style="font-weight:400;font-size:9.5px;opacity:.9;">&Sigma; ${fmt(r.rowCalcs.reduce((s,c)=>s+c.rowTotalCurrent,0))} A${ic('tableTotalCurrent')}</span></th>
+            <th style="width:58px">UPS<br>backup?</th>
+            <th style="width:26px"></th>
+          </tr></thead>
+          <tbody id="rowsBody"></tbody>
+        </table>
+      </div>
+      <button class="btn-outline btn-sm add-row-btn" id="btnAddRow">+ Add load</button>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Totals</h3>
+        <div class="stat-list">
+          <div class="stat-row"><span class="stat-label">Total connected input power${ic('totalKW')}</span><span class="stat-value">${fmt(r.totalKW)} kW</span></div>
+          <div class="stat-row"><span class="stat-label">Total connected apparent load${ic('totalKVA')}</span><span class="stat-value">${fmt(r.totalKVA)} kVA</span></div>
+          <div class="stat-row"><span class="stat-label">Full Load Current, Ib${ic('flc')}</span><span class="stat-value big">${fmt(r.fullLoadCurrent)} A</span></div>
+          <div class="stat-row"><span class="stat-label">Diversity / demand factor</span><span><input type="number" step="0.01" class="input-inline" id="f_div" value="${panel.diversity}"></span></div>
+          <div class="stat-row"><span class="stat-label">Nominal (diversified) current${ic('nominal')}</span><span class="stat-value">${fmt(r.nominalCurrent)} A</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Main switchgear (incomer)</h3>
+        <div class="stat-list">
+          <div class="stat-row"><span class="stat-label">Design/continuity margin factor</span><span><input type="number" step="0.01" class="input-inline" id="f_margin" value="${panel.marginFactor}"></span></div>
+          <div class="stat-row"><span class="stat-label">Required incomer rating${ic('reqIncomer')}</span><span class="stat-value">${fmt(r.requiredIncomer)} A</span></div>
+          <div class="stat-row"><span class="stat-label">Selected standard MCCB${ic('selBreaker')}</span><span class="stat-value big">${r.selectedBreaker} A</span></div>
+          <div class="stat-row"><span class="stat-label">Required breaking capacity, Icu</span><span><input type="number" step="0.5" class="input-inline" id="f_reqicu" value="${panel.requiredIcu}"> kA</span></div>
+          <div class="stat-row"><span class="stat-label">Selected breaker's rated Icu</span><span><input type="number" step="0.5" class="input-inline" id="f_selicu" value="${panel.selectedBreakerIcu}"> kA</span></div>
+          <div class="stat-row"><span class="stat-label">Overall check</span><span class="verdict ${r.overallPass?'pass':'fail'}">${r.overallPass?'PASS':'FAIL'}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>UPS power supply sizing</h3>
+      <div class="card-sub">UPS backs up the single-phase control circuit only — not 3-phase power loads like the VFD. Tick "UPS backup?" on the loads above that should ride through a mains outage (typically the Control Transformer and the SMPS units feeding PLC/field I/O); the total shown below is driven by those tagged rows. The panel's Total Connected Load (3-phase, all loads, above) stays separate — it is not what the UPS needs to supply.</div>
+      <div class="grid-2">
+        <div class="stat-list">
+          <div class="stat-row"><span class="stat-label">Total panel load, reference (3-phase, all loads)</span><span class="stat-value">${fmt(r.totalKVA)} kVA</span></div>
+          <div class="stat-row"><span class="stat-label">UPS-backed control-circuit load (single-phase)${ic('upsLoadKVA')}</span><span class="stat-value big">${fmt(u.upsLoadKVA)} kVA</span></div>
+          <div class="stat-row"><span class="stat-label">UPS-backed load current${ic('upsLoadCurrent')}</span><span class="stat-value">${fmt(u.upsLoadCurrent)} A</span></div>
+          <div class="stat-row"><span class="stat-label">UPS sizing margin factor</span><span><input type="number" step="0.01" class="input-inline" id="u_margin" value="${panel.ups.marginFactor}"></span></div>
+          <div class="stat-row"><span class="stat-label">Required UPS rating${ic('reqUPS')}</span><span class="stat-value">${fmt(u.requiredUPSkVA)} kVA</span></div>
+          <div class="stat-row"><span class="stat-label">Selected standard UPS rating${ic('selUPS')}</span><span class="stat-value big">${u.selectedUPSkVA} kVA</span></div>
+        </div>
+        <div class="stat-list">
+          <div class="stat-row"><span class="stat-label">UPS conversion efficiency</span><span><input type="number" step="0.01" class="input-inline" id="u_eff" value="${panel.ups.efficiency}"></span></div>
+          <div class="stat-row"><span class="stat-label">UPS output current (to control circuit)${ic('upsOutput')}</span><span class="stat-value">${fmt(u.outputCurrent)} A</span></div>
+          <div class="stat-row"><span class="stat-label">UPS input current (from mains, raw supply)${ic('upsInput')}</span><span class="stat-value">${fmt(u.inputCurrent)} A</span></div>
+          <div class="stat-row"><span class="stat-label">Cable ambient correction, Ca / grouping, Cg</span><span style="display:flex;gap:6px;"><input type="number" step="0.01" class="input-inline" style="width:55px" id="u_ca" value="${panel.ups.cableCa}"><input type="number" step="0.01" class="input-inline" style="width:55px" id="u_cg" value="${panel.ups.cableCg}"></span></div>
+          <div class="stat-row"><span class="stat-label">Output cable (UPS &rarr; control circuit)${ic('cable')}</span><span class="stat-value">${u.outputCable.size} mm&sup2; <span style="color:var(--slate);font-weight:400;font-size:11px;">(Iz ${fmt(u.outputCable.Iz)} A)</span></span></div>
+          <div class="stat-row"><span class="stat-label">Input cable (mains &rarr; UPS, raw supply)${ic('cable')}</span><span class="stat-value">${u.inputCable.size} mm&sup2; <span style="color:var(--slate);font-weight:400;font-size:11px;">(Iz ${fmt(u.inputCable.Iz)} A)</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card standards-card">
+      <h3>Standards used in this panel's calculations</h3>
+      <div class="card-sub">Hover or tap the <span class="info-icon" style="margin:0 2px;">i<span class="tip"><span class="f">Example</span><span class="s">This is what the "i" icons next to values above show — the exact formula and the standard behind it.</span></span></span> icon next to any value above for its exact formula.</div>
+      <ul>
+        <li><b>IEC 60364</b> (series) — electrical installations of buildings; general load-current and demand-factor practice</li>
+        <li><b>IEC 60364-4-43</b> — protection against overcurrent; continuity margin for main incomer sizing (In &ge; 1.25&times;Ib)</li>
+        <li><b>IEC 60364-5-52</b> — cable current-carrying capacity, ambient/grouping correction factors</li>
+        <li><b>IEC 60909</b> — short-circuit current calculation in three-phase systems (basis for the balanced 3-phase Ib derivation)</li>
+        <li><b>IEC 60947-2</b> — low-voltage circuit-breakers; standard MCCB frame/rating steps</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Export this panel</h3>
+      <div class="card-sub">Formatted, ready-to-file outputs for this panel (${escapeHtml(panel.tag)}).</div>
+      <div class="export-row">
+        <button class="btn-primary" style="color:var(--navy-dark);background:#EAF1F8;" id="btnExportExcel">Export Excel (.xlsx)</button>
+        <button class="btn-primary" style="color:var(--navy-dark);background:#EAF1F8;" id="btnExportPdf">Export PDF report</button>
+      </div>
+    </div>
+  `;
+
+  renderRows(panel, r);
+  wireMainEvents(panel);
+}
+
+function renderCombinedMain(){
+  const main = document.getElementById("mainArea");
+  const c = state.combined;
+  const r = calcCombined();
+
+  main.innerHTML = `
+    <div class="card">
+      <div class="panel-header-row">
+        <div class="panel-title-inputs">
+          <div class="field"><label>Main panel description</label><input class="name-input" id="c_name" value="${escapeHtml(c.name)}" style="width:280px"></div>
+          <div class="field"><label>Prepared by</label><input id="c_prep" value="${escapeHtml(c.preparedBy)}" style="width:140px"></div>
+          <div class="field"><label>Revision</label><input id="c_rev" value="${escapeHtml(c.revision)}" style="width:60px"></div>
+          <div class="field"><label>System voltage, V (line-line)</label><input type="number" id="c_v" value="${c.systemV}" style="width:90px"></div>
+        </div>
+      </div>
+      <div class="card-sub" style="margin-top:6px;">Aggregates the Full Load Current of every panel in this project into the incoming power panel / main LT board feeding all of them. Add or remove panels from the sidebar — this view updates automatically.</div>
+    </div>
+
+    <div class="card">
+      <h3>Load contribution by panel</h3>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th style="width:26px">#</th>
+            <th style="min-width:140px;text-align:left;padding-left:8px">Panel tag</th>
+            <th style="min-width:180px;text-align:left">Description</th>
+            <th style="width:100px">Connected<br>load (kW)</th>
+            <th style="width:100px">Apparent<br>load (kVA)</th>
+            <th style="width:110px">Full Load<br>Current (A)</th>
+            <th style="width:100px">Selected<br>MCCB (A)</th>
+            <th style="width:80px">Panel<br>check</th>
+          </tr></thead>
+          <tbody>
+            ${r.perPanel.map((x,i)=>`
+              <tr>
+                <td>${i+1}</td>
+                <td class="desc-cell">${escapeHtml(x.panel.tag)}</td>
+                <td class="desc-cell">${escapeHtml(x.panel.name)||'<span style="color:var(--slate)">—</span>'}</td>
+                <td class="readonly-cell">${fmt(x.results.totalKW)}</td>
+                <td class="readonly-cell">${fmt(x.results.totalKVA)}</td>
+                <td class="readonly-cell">${fmt(x.results.fullLoadCurrent)}</td>
+                <td class="readonly-cell">${x.results.selectedBreaker}</td>
+                <td><span class="verdict ${x.results.overallPass?'pass':'fail'}" style="padding:2px 9px;font-size:11px;">${x.results.overallPass?'PASS':'FAIL'}</span></td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Combined totals</h3>
+        <div class="stat-list">
+          <div class="stat-row"><span class="stat-label">Total connected input power (all panels)</span><span class="stat-value">${fmt(r.totalKW)} kW</span></div>
+          <div class="stat-row"><span class="stat-label">Total connected apparent load (all panels)</span><span class="stat-value">${fmt(r.totalKVA)} kVA</span></div>
+          <div class="stat-row"><span class="stat-label">Full Load Current, Ib (main incomer)${ic('flc')}</span><span class="stat-value big">${fmt(r.fullLoadCurrent)} A</span></div>
+          <div class="stat-row"><span class="stat-label">Diversity / demand factor</span><span><input type="number" step="0.01" class="input-inline" id="c_div" value="${c.diversity}"></span></div>
+          <div class="stat-row"><span class="stat-label">Nominal (diversified) current${ic('nominal')}</span><span class="stat-value">${fmt(r.nominalCurrent)} A</span></div>
+          <div class="stat-row"><span class="stat-label">Total UPS-backed control-circuit load (all panels)</span><span class="stat-value">${fmt(r.totalUpsKVA)} kVA</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Main switchgear (power panel incomer)</h3>
+        <div class="stat-list">
+          <div class="stat-row"><span class="stat-label">Design/continuity margin factor</span><span><input type="number" step="0.01" class="input-inline" id="c_margin" value="${c.marginFactor}"></span></div>
+          <div class="stat-row"><span class="stat-label">Required incomer rating${ic('reqIncomer')}</span><span class="stat-value">${fmt(r.requiredIncomer)} A</span></div>
+          <div class="stat-row"><span class="stat-label">Selected standard MCCB / ACB${ic('selBreaker')}</span><span class="stat-value big">${r.selectedBreaker} A</span></div>
+          <div class="stat-row"><span class="stat-label">Required breaking capacity, Icu</span><span><input type="number" step="0.5" class="input-inline" id="c_reqicu" value="${c.requiredIcu}"> kA</span></div>
+          <div class="stat-row"><span class="stat-label">Selected breaker's rated Icu</span><span><input type="number" step="0.5" class="input-inline" id="c_selicu" value="${c.selectedBreakerIcu}"> kA</span></div>
+          <div class="stat-row"><span class="stat-label">Overall check</span><span class="verdict ${r.overallPass?'pass':'fail'}">${r.overallPass?'PASS':'FAIL'}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Export combined power panel</h3>
+      <div class="card-sub">Covers the main incomer sizing plus a breakdown of what each downstream panel contributes.</div>
+      <div class="export-row">
+        <button class="btn-primary" style="color:var(--navy-dark);background:#EAF1F8;" id="btnExportCombinedExcel">Export Excel (.xlsx)</button>
+        <button class="btn-primary" style="color:var(--navy-dark);background:#EAF1F8;" id="btnExportCombinedPdf">Export PDF report</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("c_name").oninput = e => { c.name = e.target.value; };
+  document.getElementById("c_prep").oninput = e => { c.preparedBy = e.target.value; };
+  document.getElementById("c_rev").oninput = e => { c.revision = e.target.value; };
+  document.getElementById("c_v").oninput = e => { c.systemV = e.target.value; renderMain(); };
+  document.getElementById("c_div").oninput = e => { c.diversity = e.target.value; renderMain(); };
+  document.getElementById("c_margin").oninput = e => { c.marginFactor = e.target.value; renderMain(); };
+  document.getElementById("c_reqicu").oninput = e => { c.requiredIcu = e.target.value; renderMain(); };
+  document.getElementById("c_selicu").oninput = e => { c.selectedBreakerIcu = e.target.value; renderMain(); };
+  document.getElementById("btnExportCombinedExcel").onclick = exportCombinedExcel;
+  document.getElementById("btnExportCombinedPdf").onclick = exportCombinedPdf;
+}
+
+function renderRows(panel, results){
+  const body = document.getElementById("rowsBody");
+  body.innerHTML = "";
+  panel.rows.forEach((row, idx)=>{
+    const c = results.rowCalcs[idx];
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${idx+1}</td>
+      <td class="desc-cell"><input class="cell-input desc-input" data-field="desc" data-id="${row.id}" value="${escapeHtml(row.desc)}"></td>
+      <td><input class="cell-input" type="number" min="0" step="1" data-field="qty" data-id="${row.id}" value="${row.qty}"></td>
+      <td><input class="cell-input" type="number" min="0" step="0.01" data-field="p" data-id="${row.id}" value="${row.p}"></td>
+      <td><input class="cell-input" type="number" min="0" max="1" step="0.01" data-field="eff" data-id="${row.id}" value="${row.eff}"></td>
+      <td><input class="cell-input" type="number" min="0" max="1" step="0.01" data-field="pf" data-id="${row.id}" value="${row.pf}"></td>
+      <td>
+        <select class="cell-input" data-field="phase" data-id="${row.id}">
+          <option value="3" ${row.phase==3?'selected':''}>3</option>
+          <option value="1" ${row.phase==1?'selected':''}>1</option>
+        </select>
+      </td>
+      <td><input class="cell-input" type="number" min="0" step="0.01" placeholder="—" data-field="override" data-id="${row.id}" value="${row.override}"></td>
+      <td class="readonly-cell">${fmt(c.inputPower,3)}</td>
+      <td class="readonly-cell">${fmt(c.kva,3)}</td>
+      <td class="readonly-cell">${fmt(c.uflc)}</td>
+      <td class="readonly-cell">${fmt(c.rowTotalCurrent)}</td>
+      <td><input type="checkbox" data-field="upsBackup" data-id="${row.id}" ${row.upsBackup?'checked':''} style="width:16px;height:16px;"></td>
+      <td><button class="row-del" data-id="${row.id}" title="Delete row">&times;</button></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function wireMainEvents(panel){
+  document.getElementById("f_tag").oninput = e => { panel.tag = e.target.value; renderSidebar(); };
+  document.getElementById("f_name").oninput = e => { panel.name = e.target.value; };
+  document.getElementById("f_prep").oninput = e => { panel.preparedBy = e.target.value; };
+  document.getElementById("f_rev").oninput = e => { panel.revision = e.target.value; };
+  document.getElementById("f_v").oninput = e => { panel.systemV = e.target.value; renderMain(); };
+  document.getElementById("f_vph").oninput = e => { panel.systemVph = e.target.value; renderMain(); };
+  document.getElementById("f_div").oninput = e => { panel.diversity = e.target.value; renderMain(); };
+  document.getElementById("f_margin").oninput = e => { panel.marginFactor = e.target.value; renderMain(); };
+  document.getElementById("f_reqicu").oninput = e => { panel.requiredIcu = e.target.value; renderMain(); };
+  document.getElementById("f_selicu").oninput = e => { panel.selectedBreakerIcu = e.target.value; renderMain(); };
+  document.getElementById("u_margin").oninput = e => { panel.ups.marginFactor = e.target.value; renderMain(); };
+  document.getElementById("u_eff").oninput = e => { panel.ups.efficiency = e.target.value; renderMain(); };
+  document.getElementById("u_ca").oninput = e => { panel.ups.cableCa = e.target.value; renderMain(); };
+  document.getElementById("u_cg").oninput = e => { panel.ups.cableCg = e.target.value; renderMain(); };
+  document.getElementById("btnDeletePanel").onclick = ()=>deletePanel(panel.id);
+  document.getElementById("btnAddRow").onclick = ()=>{ panel.rows.push(newRow()); renderAll(); };
+  document.getElementById("btnExportExcel").onclick = ()=>exportPanelExcel(panel);
+  document.getElementById("btnExportPdf").onclick = ()=>exportPanelPdf(panel);
+
+  document.querySelectorAll("[data-field]").forEach(el=>{
+    el.addEventListener("change", e=>{
+      const id = e.target.dataset.id;
+      const field = e.target.dataset.field;
+      const row = panel.rows.find(x=>x.id===id);
+      if (!row) return;
+      row[field] = (field==="upsBackup") ? e.target.checked : e.target.value;
+      renderMain();
+    });
+  });
+  document.querySelectorAll(".row-del").forEach(btn=>{
+    btn.onclick = ()=>{
+      panel.rows = panel.rows.filter(x=>x.id!==btn.dataset.id);
+      renderAll();
+    };
+  });
+}
+
+function renderAll(){
+  renderSidebar();
+  renderMain();
+}
+
+/* ============================= PANEL MGMT ============================= */
+
+function nextTag(){
+  const nums = state.panels
+    .map(p=>p.tag.match(/^CP(\d+)$/i))
+    .filter(Boolean)
+    .map(m=>parseInt(m[1],10));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return "CP" + String(next).padStart(2,"0");
+}
+
+function addPanel(){
+  const p = newPanel(nextTag());
+  p.rows = defaultRows();
+  state.panels.push(p);
+  state.activePanelId = p.id;
+  renderAll();
+}
+
+function deletePanel(id){
+  if (state.panels.length===1){ alert("At least one panel must remain."); return; }
+  const p = state.panels.find(x=>x.id===id);
+  if (!confirm(`Delete panel "${p.tag}"? This cannot be undone.`)) return;
+  state.panels = state.panels.filter(x=>x.id!==id);
+  if (state.activePanelId===id){ state.activePanelId = state.panels[0].id; }
+  renderAll();
+}
+
+document.getElementById("btnAddPanel").onclick = addPanel;
+
+/* ============================= EXCEL EXPORT (ExcelJS — full styling) ============================= */
+
+const XLS_NAVY = "FF1F4E78";
+const XLS_NAVY_LIGHT = "FF2E6DA4";
+const XLS_LIGHT_BG = "FFF2F5FA";
+const XLS_PASS_BG = "FFE4F5E9", XLS_PASS_FG = "FF1E7A3C";
+const XLS_FAIL_BG = "FFFBE7E7", XLS_FAIL_FG = "FFB3261E";
+const XLS_BORDER = "FFD9D9D9";
+const xlsThinBorder = {
+  top:{style:"thin",color:{argb:XLS_BORDER}}, bottom:{style:"thin",color:{argb:XLS_BORDER}},
+  left:{style:"thin",color:{argb:XLS_BORDER}}, right:{style:"thin",color:{argb:XLS_BORDER}}
+};
+
+function xlsTitle(ws, text, numCols){
+  const row = ws.addRow([text]);
+  ws.mergeCells(row.number,1,row.number,numCols);
+  row.getCell(1).font = {bold:true, size:14, color:{argb:"FFFFFFFF"}};
+  row.getCell(1).fill = {type:"pattern", pattern:"solid", fgColor:{argb:XLS_NAVY}};
+  row.getCell(1).alignment = {vertical:"middle", indent:1};
+  row.height = 24;
+  return row;
+}
+function xlsSubtitle(ws, text, numCols){
+  const row = ws.addRow([text]);
+  ws.mergeCells(row.number,1,row.number,numCols);
+  row.getCell(1).font = {italic:true, size:10, color:{argb:"FF5B6B7C"}};
+  row.getCell(1).alignment = {indent:1};
+  return row;
+}
+function xlsBlank(ws){ ws.addRow([]); }
+function xlsSectionHeader(ws, text, numCols){
+  const row = ws.addRow([text]);
+  ws.mergeCells(row.number,1,row.number,numCols);
+  row.getCell(1).font = {bold:true, size:11, color:{argb:"FFFFFFFF"}};
+  row.getCell(1).fill = {type:"pattern", pattern:"solid", fgColor:{argb:XLS_NAVY_LIGHT}};
+  row.getCell(1).alignment = {vertical:"middle", indent:1};
+  row.height = 19;
+  return row;
+}
+function xlsKV(ws, label, value, opts={}){
+  const row = ws.addRow([label, value]);
+  row.getCell(1).font = {bold:true};
+  row.getCell(1).border = xlsThinBorder;
+  row.getCell(2).border = xlsThinBorder;
+  row.getCell(2).alignment = {horizontal: opts.verdict ? "center" : "right"};
+  if (typeof value === "number") row.getCell(2).numFmt = "0.00";
+  if (opts.verdict){
+    const pass = value === "PASS";
+    row.getCell(2).font = {bold:true, color:{argb: pass?XLS_PASS_FG:XLS_FAIL_FG}};
+    row.getCell(2).fill = {type:"pattern", pattern:"solid", fgColor:{argb: pass?XLS_PASS_BG:XLS_FAIL_BG}};
+  }
+  return row;
+}
+function xlsTableHeader(ws, headers){
+  const row = ws.addRow(headers);
+  row.eachCell(cell=>{
+    cell.font = {bold:true, size:9.5, color:{argb:"FFFFFFFF"}};
+    cell.fill = {type:"pattern", pattern:"solid", fgColor:{argb:XLS_NAVY_LIGHT}};
+    cell.alignment = {horizontal:"center", vertical:"middle", wrapText:true};
+    cell.border = xlsThinBorder;
+  });
+  row.height = 30;
+  return row;
+}
+function xlsTableRow(ws, values, alt, verdictCol){
+  const row = ws.addRow(values);
+  row.eachCell((cell, colNum)=>{
+    cell.border = xlsThinBorder;
+    cell.alignment = {horizontal: colNum===2 ? "left":"center", vertical:"middle"};
+    if (alt) cell.fill = {type:"pattern", pattern:"solid", fgColor:{argb:XLS_LIGHT_BG}};
+    if (typeof cell.value === "number") cell.numFmt = "0.00";
+    if (verdictCol && colNum===verdictCol){
+      const pass = cell.value === "PASS";
+      cell.font = {bold:true, color:{argb: pass?XLS_PASS_FG:XLS_FAIL_FG}};
+      cell.fill = {type:"pattern", pattern:"solid", fgColor:{argb: pass?XLS_PASS_BG:XLS_FAIL_BG}};
+    }
+  });
+  return row;
+}
+
+function buildPanelSheet(workbook, panel){
+  const results = calcPanel(panel);
+  const u = calcUPS(panel, results);
+  const numCols = 13;
+  const ws = workbook.addWorksheet(panel.tag.substring(0,31).replace(/[\[\]\*\/\\\?:]/g,""));
+  ws.columns = [{width:5},{width:36},{width:9},{width:15},{width:10},{width:10},{width:7},
+    {width:16},{width:13},{width:15},{width:12},{width:15},{width:11}];
+
+  xlsTitle(ws, `Control Panel Load Schedule — ${panel.tag}`, numCols);
+  xlsSubtitle(ws, panel.name||"", numCols);
+  xlsSubtitle(ws, `Prepared by: ${panel.preparedBy||"-"}    Revision: ${panel.revision||"-"}    Date: ${new Date().toLocaleDateString()}`, numCols);
+  xlsBlank(ws);
+  xlsKV(ws, "System voltage, V (line-line)", Number(panel.systemV));
+  xlsKV(ws, "1-phase reference voltage, Vph", Number(panel.systemVph));
+  xlsBlank(ws);
+
+  xlsSectionHeader(ws, "LOAD SCHEDULE", numCols);
+  xlsTableHeader(ws, ["Sr","Component / Tag","Qty","Rated Power\nP (kW)","Efficiency","Power\nFactor","Phase",
+    "Vendor FLC\noverride (A)","Input Power\n(kW)","Apparent Power\n(kVA)","Unit FLC\n(A)","Total Power\n(KW)","Row Total\nCurrent (A)","UPS\nBackup?"]);
+  panel.rows.forEach((row, idx)=>{
+    const c = results.rowCalcs[idx];
+    xlsTableRow(ws, [idx+1, row.desc, Number(row.qty), Number(row.p), Number(row.eff), Number(row.pf), Number(row.phase),
+      row.override===""?"—":Number(row.override), Number(c.inputPower.toFixed(3)), Number(c.kva.toFixed(3)),
+      Number(c.uflc.toFixed(2)), Number(c.rowTotalCurrent.toFixed(2)), row.upsBackup?"Yes":"No"], idx%2===1);
+  });
+  xlsBlank(ws);
+
+  xlsSectionHeader(ws, "TOTALS", numCols);
+  xlsKV(ws, "Total connected input power (kW)", Number(results.totalKW.toFixed(2)));
+  xlsKV(ws, "Total connected apparent load (kVA)", Number(results.totalKVA.toFixed(2)));
+  xlsKV(ws, "Full Load Current, Ib (A)", Number(results.fullLoadCurrent.toFixed(2)));
+  xlsKV(ws, "Diversity / demand factor", Number(panel.diversity));
+  xlsKV(ws, "Nominal (diversified) current (A)", Number(results.nominalCurrent.toFixed(2)));
+  xlsBlank(ws);
+
+  xlsSectionHeader(ws, "MAIN SWITCHGEAR (INCOMER)", numCols);
+  xlsKV(ws, "Design/continuity margin factor", Number(panel.marginFactor));
+  xlsKV(ws, "Required incomer rating (A)", Number(results.requiredIncomer.toFixed(2)));
+  xlsKV(ws, "Selected standard MCCB (A)", results.selectedBreaker);
+  xlsKV(ws, "Required breaking capacity, Icu (kA)", Number(panel.requiredIcu));
+  xlsKV(ws, "Selected breaker rated Icu (kA)", Number(panel.selectedBreakerIcu));
+  xlsKV(ws, "Overall check", results.overallPass?"PASS":"FAIL", {verdict:true});
+  xlsBlank(ws);
+
+  xlsSectionHeader(ws, "UPS POWER SUPPLY SIZING (single-phase control circuit only)", numCols);
+  xlsKV(ws, "Total panel load, reference (3-phase, all loads) (kVA)", Number(results.totalKVA.toFixed(2)));
+  xlsKV(ws, "UPS-backed control-circuit load (kVA)", Number(u.upsLoadKVA.toFixed(3)));
+  xlsKV(ws, "UPS-backed load current (A)", Number(u.upsLoadCurrent.toFixed(2)));
+  xlsKV(ws, "UPS sizing margin factor", Number(panel.ups.marginFactor));
+  xlsKV(ws, "Required UPS rating (kVA)", Number(u.requiredUPSkVA.toFixed(3)));
+  xlsKV(ws, "Selected standard UPS rating (kVA)", u.selectedUPSkVA);
+  xlsKV(ws, "UPS conversion efficiency", Number(panel.ups.efficiency));
+  xlsKV(ws, "UPS output current, to control circuit (A)", Number(u.outputCurrent.toFixed(2)));
+  xlsKV(ws, "UPS input current, raw supply from mains (A)", Number(u.inputCurrent.toFixed(2)));
+  xlsKV(ws, "Cable ambient correction Ca / grouping Cg", `${panel.ups.cableCa} / ${panel.ups.cableCg}`);
+  xlsKV(ws, "Output cable size, UPS to control circuit (mm2)", u.outputCable.size);
+  xlsKV(ws, "Input cable size, mains to UPS (mm2)", u.inputCable.size);
+
+  ws.pageSetup = { fitToPage:true, fitToWidth:1, fitToHeight:0, orientation:"landscape" };
+  return ws;
+}
+
+async function exportPanelExcel(panel){
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Panel Load Calculator";
+  workbook.created = new Date();
+  buildPanelSheet(workbook, panel);
+  const buffer = await workbook.xlsx.writeBuffer();
+  saveAs(new Blob([buffer], {type:"application/octet-stream"}), `${panel.tag}_Load_Calculation.xlsx`);
+}
+
+async function exportAllPanelsExcel(){
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Panel Load Calculator";
+  workbook.created = new Date();
+
+  const sws = workbook.addWorksheet("Summary");
+  sws.columns = [{width:11},{width:34},{width:18},{width:18},{width:16},{width:14},{width:12}];
+  xlsTitle(sws, "All Panels — Load Calculation Summary", 7);
+  xlsSubtitle(sws, `Generated: ${new Date().toLocaleDateString()}`, 7);
+  xlsBlank(sws);
+  xlsTableHeader(sws, ["Panel Tag","Description","Full Load\nCurrent (A)","Nominal\nCurrent (A)","Selected\nMCCB (A)","UPS Load\n(kVA)","Overall\nCheck"]);
+  state.panels.forEach((panel, idx)=>{
+    const r = calcPanel(panel);
+    const u = calcUPS(panel, r);
+    xlsTableRow(sws, [panel.tag, panel.name||"—", Number(r.fullLoadCurrent.toFixed(2)), Number(r.nominalCurrent.toFixed(2)),
+      r.selectedBreaker, Number(u.upsLoadKVA.toFixed(2)), r.overallPass?"PASS":"FAIL"], idx%2===1, 7);
+  });
+  sws.getColumn(2).alignment = {horizontal:"left"};
+
+  state.panels.forEach(panel => buildPanelSheet(workbook, panel));
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  saveAs(new Blob([buffer], {type:"application/octet-stream"}), `All_Panels_Load_Calculation.xlsx`);
+}
+document.getElementById("btnExportAllExcel").onclick = exportAllPanelsExcel;
+
+async function exportCombinedExcel(){
+  const c = state.combined;
+  const r = calcCombined();
+  const numCols = 8;
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Panel Load Calculator";
+  workbook.created = new Date();
+  const ws = workbook.addWorksheet("Power Panel");
+  ws.columns = [{width:5},{width:14},{width:32},{width:16},{width:16},{width:18},{width:16},{width:12}];
+
+  xlsTitle(ws, "Main Power / Distribution Panel — Combined Load", numCols);
+  xlsSubtitle(ws, c.name||"", numCols);
+  xlsSubtitle(ws, `Prepared by: ${c.preparedBy||"-"}    Revision: ${c.revision||"-"}    Date: ${new Date().toLocaleDateString()}`, numCols);
+  xlsBlank(ws);
+  xlsKV(ws, "System voltage, V (line-line)", Number(c.systemV));
+  xlsBlank(ws);
+
+  xlsSectionHeader(ws, "LOAD CONTRIBUTION BY PANEL", numCols);
+  xlsTableHeader(ws, ["Sr","Panel Tag","Description","Connected\nLoad (kW)","Apparent\nLoad (kVA)","Full Load\nCurrent (A)","Selected\nMCCB (A)","Panel\nCheck"]);
+  r.perPanel.forEach((x,i)=>{
+    xlsTableRow(ws, [i+1, x.panel.tag, x.panel.name||"—", Number(x.results.totalKW.toFixed(2)), Number(x.results.totalKVA.toFixed(2)),
+      Number(x.results.fullLoadCurrent.toFixed(2)), x.results.selectedBreaker, x.results.overallPass?"PASS":"FAIL"], i%2===1, 8);
+  });
+  xlsBlank(ws);
+
+  xlsSectionHeader(ws, "COMBINED TOTALS", numCols);
+  xlsKV(ws, "Total connected input power, all panels (kW)", Number(r.totalKW.toFixed(2)));
+  xlsKV(ws, "Total connected apparent load, all panels (kVA)", Number(r.totalKVA.toFixed(2)));
+  xlsKV(ws, "Full Load Current, Ib — main incomer (A)", Number(r.fullLoadCurrent.toFixed(2)));
+  xlsKV(ws, "Diversity / demand factor", Number(c.diversity));
+  xlsKV(ws, "Nominal (diversified) current (A)", Number(r.nominalCurrent.toFixed(2)));
+  xlsKV(ws, "Total UPS-backed control-circuit load, all panels (kVA)", Number(r.totalUpsKVA.toFixed(2)));
+  xlsBlank(ws);
+
+  xlsSectionHeader(ws, "MAIN SWITCHGEAR (POWER PANEL INCOMER)", numCols);
+  xlsKV(ws, "Design/continuity margin factor", Number(c.marginFactor));
+  xlsKV(ws, "Required incomer rating (A)", Number(r.requiredIncomer.toFixed(2)));
+  xlsKV(ws, "Selected standard MCCB/ACB (A)", r.selectedBreaker);
+  xlsKV(ws, "Required breaking capacity, Icu (kA)", Number(c.requiredIcu));
+  xlsKV(ws, "Selected breaker rated Icu (kA)", Number(c.selectedBreakerIcu));
+  xlsKV(ws, "Overall check", r.overallPass ? "PASS":"FAIL", {verdict:true});
+
+  ws.pageSetup = { fitToPage:true, fitToWidth:1, fitToHeight:0, orientation:"landscape" };
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  saveAs(new Blob([buffer], {type:"application/octet-stream"}), `Main_Power_Panel_Load_Calculation.xlsx`);
+}
+
+function exportCombinedPdf(){
+  const { jsPDF } = window.jspdf;
+  const c = state.combined;
+  const r = calcCombined();
+  const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 32;
+
+  doc.setFillColor(31,78,120);
+  doc.rect(0,0,pageWidth,54,"F");
+  doc.setTextColor(255,255,255);
+  doc.setFont("helvetica","bold");
+  doc.setFontSize(15);
+  doc.text(`Main Power / Distribution Panel — Combined Load`, margin, 26);
+  doc.setFont("helvetica","normal");
+  doc.setFontSize(10);
+  doc.text(c.name || "", margin, 42);
+
+  doc.setTextColor(30,30,30);
+  doc.setFontSize(9);
+  const metaY = 70;
+  doc.text(`Prepared by: ${c.preparedBy || "-"}`, margin, metaY);
+  doc.text(`Revision: ${c.revision || "-"}`, margin+220, metaY);
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, margin+380, metaY);
+  doc.text(`System voltage: ${c.systemV} V (L-L)`, margin+520, metaY);
+
+  const head = [["Sr","Panel Tag","Description","Connected (kW)","Apparent (kVA)","Full Load Current (A)","Selected MCCB (A)","Check"]];
+  const body = r.perPanel.map((x,i)=>[
+    i+1, x.panel.tag, x.panel.name||"—",
+    x.results.totalKW.toFixed(2), x.results.totalKVA.toFixed(2), x.results.fullLoadCurrent.toFixed(2),
+    x.results.selectedBreaker, x.results.overallPass?"PASS":"FAIL"
+  ]);
+
+  doc.autoTable({
+    head, body, startY:82, margin:{left:margin,right:margin},
+    styles:{ font:"helvetica", fontSize:9, cellPadding:5, textColor:[30,30,30] },
+    headStyles:{ fillColor:[31,78,120], textColor:255, fontStyle:"bold", halign:"center" },
+    columnStyles:{0:{halign:"center",cellWidth:26},2:{cellWidth:200},3:{halign:"right"},4:{halign:"right"},5:{halign:"right"},6:{halign:"right"},7:{halign:"center"}},
+    alternateRowStyles:{ fillColor:[247,249,251] },
+    didParseCell: function(data){
+      if (data.section==="body" && data.column.index===7){
+        data.cell.styles.fontStyle="bold";
+        data.cell.styles.textColor = data.cell.raw==="PASS" ? [30,122,60] : [179,38,30];
+      }
+    }
+  });
+
+  let y = doc.lastAutoTable.finalY + 20;
+  const totalsBody = [
+    ["Total connected input power, all panels", `${r.totalKW.toFixed(2)} kW`],
+    ["Total connected apparent load, all panels", `${r.totalKVA.toFixed(2)} kVA`],
+    ["Full Load Current, Ib (main incomer)", `${r.fullLoadCurrent.toFixed(2)} A`],
+    ["Diversity / demand factor", Number(c.diversity).toFixed(2)],
+    ["Nominal (diversified) current", `${r.nominalCurrent.toFixed(2)} A`],
+  ];
+  const switchgearBody = [
+    ["Design/continuity margin factor", Number(c.marginFactor).toFixed(2)],
+    ["Required incomer rating", `${r.requiredIncomer.toFixed(2)} A`],
+    ["Selected standard MCCB/ACB", `${r.selectedBreaker} A`],
+    ["Required breaking capacity, Icu", `${Number(c.requiredIcu).toFixed(1)} kA`],
+    ["Selected breaker rated Icu", `${Number(c.selectedBreakerIcu).toFixed(1)} kA`],
+    ["Overall check", r.overallPass ? "PASS" : "FAIL"],
+  ];
+  const colWidth = (pageWidth - margin*2 - 20)/2;
+
+  doc.autoTable({
+    body: totalsBody, startY:y, margin:{left:margin}, tableWidth: colWidth,
+    styles:{ font:"helvetica", fontSize:9, cellPadding:5 }, theme:"grid",
+    columnStyles:{0:{fontStyle:"bold", cellWidth: colWidth*0.62},1:{halign:"right"}},
+  });
+  doc.autoTable({
+    body: switchgearBody, startY:y, margin:{left: margin + colWidth + 20}, tableWidth: colWidth,
+    styles:{ font:"helvetica", fontSize:9, cellPadding:5 }, theme:"grid",
+    columnStyles:{0:{fontStyle:"bold", cellWidth: colWidth*0.62},1:{halign:"right"}},
+    didParseCell: function(data){
+      if (data.row.index === switchgearBody.length-1 && data.column.index===1){
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.textColor = r.overallPass ? [30,122,60] : [179,38,30];
+      }
+    }
+  });
+
+  doc.setFontSize(8);
+  doc.setTextColor(120,120,120);
+  doc.text("Generated by Panel Load Calculator — preliminary sizing tool; verify against vendor datasheets and site fault-level study before sign-off.",
+    margin, doc.internal.pageSize.getHeight()-16);
+
+  doc.save(`Main_Power_Panel_Load_Calculation_Report.pdf`);
+}
+
+/* ============================= PDF EXPORT ============================= */
+
+function exportPanelPdf(panel){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
+  const results = calcPanel(panel);
+  const u = calcUPS(panel, results);
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 32;
+
+  // Header block
+  doc.setFillColor(31,78,120);
+  doc.rect(0,0,pageWidth,54,"F");
+  doc.setTextColor(255,255,255);
+  doc.setFont("helvetica","bold");
+  doc.setFontSize(15);
+  doc.text(`Control Panel Load Schedule — ${panel.tag}`, margin, 26);
+  doc.setFont("helvetica","normal");
+  doc.setFontSize(10);
+  doc.text(panel.name || "", margin, 42);
+
+  doc.setTextColor(30,30,30);
+  doc.setFontSize(9);
+  doc.setFont("helvetica","normal");
+  const metaY = 70;
+  doc.text(`Prepared by: ${panel.preparedBy || "-"}`, margin, metaY);
+  doc.text(`Revision: ${panel.revision || "-"}`, margin+220, metaY);
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, margin+380, metaY);
+  doc.text(`System voltage: ${panel.systemV} V (L-L)  /  ${panel.systemVph} V (1-ph ref.)`, margin+520, metaY);
+
+  // Load table
+  const head = [["Sr","Component / Tag","Qty","P (kW)","Eff","PF","Ph","Override (A)","Input (kW)","kVA","Unit FLC (A)","Row Total (A)","UPS?"]];
+  const body = panel.rows.map((row, idx)=>{
+    const c = results.rowCalcs[idx];
+    return [
+      idx+1, row.desc, row.qty, Number(row.p).toFixed(2), Number(row.eff).toFixed(2), Number(row.pf).toFixed(2),
+      row.phase, row.override===""?"—":row.override,
+      c.inputPower.toFixed(3), c.kva.toFixed(3), c.uflc.toFixed(2), c.rowTotalCurrent.toFixed(2),
+      row.upsBackup ? "Yes" : "—"
+    ];
+  });
+
+  doc.autoTable({
+    head, body,
+    startY: 82,
+    margin: {left: margin, right: margin},
+    styles:{ font:"helvetica", fontSize:8.5, cellPadding:4, textColor:[30,30,30] },
+    headStyles:{ fillColor:[31,78,120], textColor:255, fontStyle:"bold", halign:"center" },
+    columnStyles:{
+      0:{halign:"center", cellWidth:24}, 1:{cellWidth:158},
+      2:{halign:"center"},3:{halign:"right"},4:{halign:"right"},5:{halign:"right"},
+      6:{halign:"center"},7:{halign:"right"},8:{halign:"right"},9:{halign:"right"},10:{halign:"right"},11:{halign:"right"},
+      12:{halign:"center"}
+    },
+    alternateRowStyles:{ fillColor:[247,249,251] },
+  });
+
+  let y = doc.lastAutoTable.finalY + 20;
+
+  // Totals + switchgear side-by-side tables
+  const totalsBody = [
+    ["Total connected input power", `${results.totalKW.toFixed(2)} kW`],
+    ["Total connected apparent load", `${results.totalKVA.toFixed(2)} kVA`],
+    ["Full Load Current, Ib", `${results.fullLoadCurrent.toFixed(2)} A`],
+    ["Diversity / demand factor", Number(panel.diversity).toFixed(2)],
+    ["Nominal (diversified) current", `${results.nominalCurrent.toFixed(2)} A`],
+  ];
+  const switchgearBody = [
+    ["Design/continuity margin factor", Number(panel.marginFactor).toFixed(2)],
+    ["Required incomer rating", `${results.requiredIncomer.toFixed(2)} A`],
+    ["Selected standard MCCB", `${results.selectedBreaker} A`],
+    ["Required breaking capacity, Icu", `${Number(panel.requiredIcu).toFixed(1)} kA`],
+    ["Selected breaker rated Icu", `${Number(panel.selectedBreakerIcu).toFixed(1)} kA`],
+    ["Overall check", results.overallPass ? "PASS" : "FAIL"],
+  ];
+
+  const colWidth = (pageWidth - margin*2 - 20)/2;
+
+  doc.autoTable({
+    body: totalsBody, startY:y, margin:{left:margin}, tableWidth: colWidth,
+    styles:{ font:"helvetica", fontSize:9, cellPadding:5 },
+    headStyles:{ fillColor:[31,78,120] },
+    theme:"grid",
+    didDrawPage: ()=>{},
+    columnStyles:{0:{fontStyle:"bold", cellWidth: colWidth*0.62},1:{halign:"right"}},
+  });
+  const totalsFinalY = doc.lastAutoTable.finalY;
+
+  doc.autoTable({
+    body: switchgearBody, startY:y, margin:{left: margin + colWidth + 20}, tableWidth: colWidth,
+    styles:{ font:"helvetica", fontSize:9, cellPadding:5 },
+    theme:"grid",
+    columnStyles:{0:{fontStyle:"bold", cellWidth: colWidth*0.62},1:{halign:"right"}},
+    didParseCell: function(data){
+      if (data.row.index === switchgearBody.length-1 && data.column.index===1){
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.textColor = results.overallPass ? [30,122,60] : [179,38,30];
+      }
+    }
+  });
+
+  doc.setFontSize(8);
+  doc.setTextColor(120,120,120);
+  doc.text("Generated by Panel Load Calculator — preliminary sizing tool; verify against vendor datasheets and site fault-level study before sign-off.",
+    margin, doc.internal.pageSize.getHeight()-16);
+
+  // UPS power supply sizing — new page
+  doc.addPage();
+  doc.setFillColor(31,78,120);
+  doc.rect(0,0,pageWidth,54,"F");
+  doc.setTextColor(255,255,255);
+  doc.setFont("helvetica","bold");
+  doc.setFontSize(15);
+  doc.text(`UPS Power Supply Sizing — ${panel.tag}`, margin, 26);
+  doc.setFont("helvetica","normal");
+  doc.setFontSize(10);
+  doc.text("Single-phase control circuit backup only — separate from the 3-phase panel incomer above.", margin, 42);
+
+  const upsLeftBody = [
+    ["Total panel load, reference (3-phase, all loads)", `${results.totalKVA.toFixed(2)} kVA`],
+    ["UPS-backed control-circuit load", `${u.upsLoadKVA.toFixed(2)} kVA`],
+    ["UPS-backed load current", `${u.upsLoadCurrent.toFixed(2)} A`],
+    ["UPS sizing margin factor", Number(panel.ups.marginFactor).toFixed(2)],
+    ["Required UPS rating", `${u.requiredUPSkVA.toFixed(2)} kVA`],
+    ["Selected standard UPS rating", `${u.selectedUPSkVA} kVA`],
+  ];
+  const upsRightBody = [
+    ["UPS conversion efficiency", Number(panel.ups.efficiency).toFixed(2)],
+    ["UPS output current (to control circuit)", `${u.outputCurrent.toFixed(2)} A`],
+    ["UPS input current (raw supply from mains)", `${u.inputCurrent.toFixed(2)} A`],
+    ["Cable ambient correction Ca / grouping Cg", `${panel.ups.cableCa} / ${panel.ups.cableCg}`],
+    ["Output cable, UPS to control circuit", `${u.outputCable.size} mm2  (Iz ${u.outputCable.Iz.toFixed(1)} A)`],
+    ["Input cable, mains to UPS (raw supply)", `${u.inputCable.size} mm2  (Iz ${u.inputCable.Iz.toFixed(1)} A)`],
+  ];
+  const upsColWidth = (pageWidth - margin*2 - 20)/2;
+  doc.autoTable({
+    body: upsLeftBody, startY:72, margin:{left:margin}, tableWidth: upsColWidth,
+    styles:{ font:"helvetica", fontSize:9, cellPadding:5 }, theme:"grid",
+    columnStyles:{0:{fontStyle:"bold", cellWidth: upsColWidth*0.66},1:{halign:"right"}},
+  });
+  doc.autoTable({
+    body: upsRightBody, startY:72, margin:{left: margin + upsColWidth + 20}, tableWidth: upsColWidth,
+    styles:{ font:"helvetica", fontSize:9, cellPadding:5 }, theme:"grid",
+    columnStyles:{0:{fontStyle:"bold", cellWidth: upsColWidth*0.66},1:{halign:"right"}},
+  });
+
+  const upsY = doc.lastAutoTable.finalY + 20;
+  doc.setTextColor(30,30,30);
+  doc.setFontSize(9);
+  doc.setFont("helvetica","normal");
+  doc.text("UPS-backed loads (tagged \"UPS backup?\" in the load schedule):", margin, upsY);
+  const upsRowsBody = u.backedRows.map((x,i)=>[i+1, x.row.desc, x.calc.rowKVA.toFixed(3)+" kVA"]);
+  doc.autoTable({
+    head:[["#","Component","Apparent power"]], body: upsRowsBody.length?upsRowsBody:[["—","No loads tagged for UPS backup","—"]],
+    startY: upsY+8, margin:{left:margin, right: margin + upsColWidth},
+    styles:{ font:"helvetica", fontSize:8.5, cellPadding:4 },
+    headStyles:{ fillColor:[31,78,120], textColor:255, fontStyle:"bold" },
+  });
+
+  doc.setFontSize(8);
+  doc.setTextColor(120,120,120);
+  doc.text("Cable ampacity reference (Io) is a typical PVC-Cu, Method C, 30 deg C table — confirm against the exact IEC 60364-5-52 edition before sign-off.",
+    margin, doc.internal.pageSize.getHeight()-16);
+
+  doc.save(`${panel.tag}_Load_Calculation_Report.pdf`);
+}
+
+/* ============================= PROJECT SAVE/LOAD ============================= */
+
+function exportProjectJson(){
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `panel_load_project_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById("btnExportProject").onclick = exportProjectJson;
+document.getElementById("btnImportProject").onclick = ()=>document.getElementById("fileImport").click();
+document.getElementById("fileImport").onchange = (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    try{
+      const loaded = JSON.parse(evt.target.result);
+      if (!loaded.panels || !Array.isArray(loaded.panels) || loaded.panels.length===0){
+        alert("This file doesn't look like a valid project export.");
+        return;
+      }
+      state = loaded;
+      if (!state.combined) state.combined = newCombinedSettings();
+      state.activePanelId = state.panels[0].id;
+      renderAll();
+    }catch(err){
+      alert("Could not read that file: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+};
+
+/* ============================= INIT ============================= */
+renderAll();
+</script>
+</body>
+</html>
