@@ -654,6 +654,16 @@ const RATES = {
   L2: 1125     // Stage 3 rate (₹/hr) — EDIT
 };
 
+/* External tool tiles — open a separate single-file HTML module
+   (hosted in the same folder as this file) in a new tab. These are
+   NOT data categories: no records, no form, no stats. Add more by
+   copying a line; "file" is a relative path alongside index.html. */
+const EXTERNAL_LINKS = [
+  { name:'Electrical Load Calculator', icon:'⚡', color:'#2563eb',
+    desc:'Standalone load calculation tool — opens in a new tab.',
+    file:'electrical-load-calculator.html' }
+];
+
 const CATEGORIES = {
   copq:{ name:'Cost of Poor Quality', icon:'⚠️', color:'#ff6b6b',
     desc:'Defect/failure tracking with 3-stage cost impact and rupee totals.',
@@ -892,13 +902,21 @@ async function renderCatGrid(){
   try{ all = await DB.list(); }catch(e){ console.error(e); }
   const counts = {};
   all.forEach(r=>counts[r.category]=(counts[r.category]||0)+1);
-  $('#catGrid').innerHTML = Object.entries(CATEGORIES).map(([k,c])=>`
+  const catCards = Object.entries(CATEGORIES).map(([k,c])=>`
     <div class="cat-card" style="--c:${c.color}" onclick="openCat('${k}')">
       <span class="count">${counts[k]||0}</span>
       <div class="ico">${c.icon}</div>
       <h3>${c.name}</h3>
       <p>${c.desc}</p>
     </div>`).join('');
+  const linkCards = EXTERNAL_LINKS.map(l=>`
+    <div class="cat-card" style="--c:${l.color}" onclick="window.open('${l.file}','_blank')">
+      <span class="count" title="Opens in a new tab">↗</span>
+      <div class="ico">${l.icon}</div>
+      <h3>${l.name}</h3>
+      <p>${l.desc}</p>
+    </div>`).join('');
+  $('#catGrid').innerHTML = catCards + linkCards;
 }
 
 /* ---------------- open category form ---------------- */
