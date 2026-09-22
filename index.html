@@ -377,12 +377,21 @@
   <nav class="nav">
     <button id="nav-home" class="active" onclick="go('home')">Categories</button>
     <button id="nav-stats" onclick="go('stats')">Statistics</button>
+    <button id="nav-leaderboard" onclick="go('leaderboard')" style="display:none">🏆 Leaderboard</button>
+    <span id="nav-credits" title="Your contribution credits" style="display:none;align-items:center;gap:4px;color:var(--gold);font-weight:700;font-size:.82rem;padding:0 6px">🏆 <span id="nav-credits-val">0</span></span>
     <span id="nav-user" style="display:flex;align-items:center;color:var(--ink-dim);font-size:.8rem;padding:0 6px"></span>
     <button id="nav-logout" onclick="logout()" style="border-color:var(--warn);color:var(--warn)">Logout</button>
   </nav>
 </header>
 
 <main>
+  <!-- LEADERBOARD: admin-only, all-time contribution credits -->
+  <section id="view-leaderboard" class="view">
+    <h2 style="margin-bottom:4px">🏆 Contribution Leaderboard</h2>
+    <p style="color:var(--ink-dim);font-size:.85rem;margin-bottom:18px">All-time credits from records added. RCA & CAPA and Site Issues count only once Approved.</p>
+    <div class="tbl-wrap"><table id="leaderboardTable"></table></div>
+  </section>
+
   <!-- HOME: category grid -->
   <section id="view-home" class="view show">
     
@@ -664,6 +673,25 @@ const EXTERNAL_LINKS = [
     file:'electrical-load-calculator.html' }
 ];
 
+/* ============================================================
+   CONTRIBUTION CREDITS — points awarded per category record.
+   Tune the numbers below any time; nothing else needs to change.
+   RCA & CAPA and Site Issues are quality-gated: they only count
+   once a record's Approval Status is "Approved" (not on mere
+   creation), since those go through a review step. Every other
+   category counts as soon as a record is added.
+   ============================================================ */
+const CREDIT_POINTS = {
+  copq: 10,          // Cost of Poor Quality
+  goodpractice: 5,   // Good Practices
+  presale: 15,       // Cost Saving
+  changenote: 5,     // Change Notes
+  champion: 5,       // Weekly Champion Records
+  rcacapa: 25,       // RCA & CAPA — quality-gated (Approved only)
+  siteissue: 20      // Site Issues — quality-gated (Approved only)
+};
+const APPROVAL_GATED_CATEGORIES = ['rcacapa','siteissue'];
+
 const CATEGORIES = {
   copq:{ name:'Cost of Poor Quality', icon:'⚠️', color:'#ff6b6b',
     desc:'Defect/failure tracking with 3-stage cost impact and rupee totals.',
@@ -891,9 +919,11 @@ function go(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('show'));
   $('#nav-home').classList.toggle('active', v==='home');
   $('#nav-stats').classList.toggle('active', v==='stats');
+  $('#nav-leaderboard').classList.toggle('active', v==='leaderboard');
   if(v==='home'){ $('#view-home').classList.add('show'); renderCatGrid(); }
   if(v==='stats'){ $('#view-stats').classList.add('show'); renderStats(); }
   if(v==='cat'){ $('#view-cat').classList.add('show'); }
+  if(v==='leaderboard'){ $('#view-leaderboard').classList.add('show'); renderLeaderboard(); }
 }
 
 /* ---------------- category grid ---------------- */
@@ -917,6 +947,51 @@ async function renderCatGrid(){
       <p>${l.desc}</p>
     </div>`).join('');
   $('#catGrid').innerHTML = catCards + linkCards;
+}
+
+/* ---------------- contribution credits ---------------- */
+async function computeCredits(){
+  let all=[];
+  try{ all = await DB.list(); }catch(e){ console.error(e); return {}; }
+  const totals={};   // owner email -> { total, byCategory:{cat:pts} }
+  all.forEach(r=>{
+    const pts = CREDIT_POINTS[r.category];
+    if(!pts) return;
+    if(APPROVAL_GATED_CATEGORIES.includes(r.category) && r.approvalStatus!=='Approved') return;
+    const owner = r.owner || 'Unknown';
+    if(!totals[owner]) totals[owner]={total:0, byCategory:{}};
+    totals[owner].total += pts;
+    totals[owner].byCategory[r.category] = (totals[owner].byCategory[r.category]||0) + pts;
+  });
+  return totals;
+}
+async function updateCreditBadge(){
+  const badge=$('#nav-credits'); if(!badge || !CURRENT_USER) return;
+  const totals = await computeCredits();
+  const mine = totals[CURRENT_USER.email] ? totals[CURRENT_USER.email].total : 0;
+  $('#nav-credits-val').textContent = mine;
+  badge.style.display='flex';
+  const lb=$('#nav-leaderboard'); if(lb) lb.style.display = (CURRENT_USER.role==='admin') ? '' : 'none';
+}
+async function renderLeaderboard(){
+  const totals = await computeCredits();
+  const rows = Object.entries(totals).sort((a,b)=>b[1].total-a[1].total);
+  const catKeys = Object.keys(CREDIT_POINTS);
+  if(!rows.length){
+    $('#leaderboardTable').innerHTML = `<tr><td><div class="empty">No credited records yet.</div></td></tr>`;
+    return;
+  }
+  $('#leaderboardTable').innerHTML = `
+    <thead><tr>
+      <th>Rank</th><th>Owner</th><th>Total Credits</th>
+      ${catKeys.map(k=>`<th>${esc(CATEGORIES[k]? CATEGORIES[k].name : k)}</th>`).join('')}
+    </tr></thead>
+    <tbody>${rows.map(([owner,data],i)=>`<tr>
+      <td>${i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)}</td>
+      <td>${esc(owner)}</td>
+      <td style="font-weight:700;color:var(--gold)">${data.total}</td>
+      ${catKeys.map(k=>`<td>${data.byCategory[k]||0}</td>`).join('')}
+    </tr>`).join('')}</tbody>`;
 }
 
 /* ---------------- open category form ---------------- */
@@ -1831,6 +1906,7 @@ async function doLogin(){
     document.getElementById('nav-user').textContent = CURRENT_USER.email + ' · ' + CURRENT_USER.role;
     hideLogin();
     renderCatGrid();
+    updateCreditBadge();
     showWelcomeAnimation();
   }catch(e){
     err.textContent = (e && e.message && /invalid|credential/i.test(e.message)) ? 'Incorrect email or password.' : 'Sign-in failed. Check connection and try again.';
@@ -1850,6 +1926,7 @@ async function logout(){ await AUTH.logout(); location.reload(); }
         document.getElementById('nav-user').textContent = CURRENT_USER.email + ' · ' + CURRENT_USER.role;
         hideLogin();
         renderCatGrid();
+        updateCreditBadge();
         return;
       }
     }
