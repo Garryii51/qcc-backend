@@ -379,6 +379,16 @@
     <button id="nav-stats" onclick="go('stats')">Statistics</button>
     <button id="nav-leaderboard" onclick="go('leaderboard')" style="display:none">🏆 Leaderboard</button>
     <span id="nav-credits" title="Your contribution credits" style="display:none;align-items:center;gap:4px;color:var(--gold);font-weight:700;font-size:.82rem;padding:0 6px">🏆 <span id="nav-credits-val">0</span></span>
+    <div id="nav-notif-wrap" style="position:relative;display:none">
+      <button id="nav-notif-btn" onclick="toggleNotifPanel()" title="Approvals awaiting you" style="position:relative">🔔
+        <span id="nav-notif-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:var(--warn);color:#fff;border-radius:10px;font-size:.68rem;font-weight:700;padding:1px 5px;line-height:1.3">0</span>
+      </button>
+      <div id="notifPanel" style="display:none;position:absolute;right:0;top:calc(100% + 8px);width:340px;max-height:420px;overflow:auto;
+        background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:250;padding:10px">
+        <div style="font-weight:700;font-size:.85rem;padding:4px 6px 10px;border-bottom:1px solid var(--line);margin-bottom:6px">Pending Your Approval</div>
+        <div id="notifList"></div>
+      </div>
+    </div>
     <span id="nav-user" style="display:flex;align-items:center;color:var(--ink-dim);font-size:.8rem;padding:0 6px"></span>
     <button id="nav-logout" onclick="logout()" style="border-color:var(--warn);color:var(--warn)">Logout</button>
   </nav>
@@ -973,6 +983,71 @@ async function updateCreditBadge(){
   badge.style.display='flex';
   const lb=$('#nav-leaderboard'); if(lb) lb.style.display = (CURRENT_USER.role==='admin') ? '' : 'none';
 }
+
+/* ---------------- pending-approval notifications ---------------- */
+const APPROVAL_CATEGORIES = ['rcacapa','siteissue'];
+async function getPendingApprovals(){
+  if(!CURRENT_USER || !AUTH.can('approve')) return [];
+  const out=[];
+  for(const cat of APPROVAL_CATEGORIES){
+    let recs=[]; try{ recs = await DB.list(cat); }catch(e){ continue; }
+    recs.filter(r=>r.approvalStatus==='Pending' && r.owner!==CURRENT_USER.email)
+        .forEach(r=>out.push({ category:cat, id:r.id,
+          label:r.rcaNo || r.issueId || ('#'+(r.srno||'')),
+          project:r.projectCode||'', owner:r.owner||'' }));
+  }
+  return out;
+}
+async function updateNotifBadge(){
+  const wrap=$('#nav-notif-wrap'); if(!wrap || !CURRENT_USER) return;
+  if(!AUTH.can('approve')){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  const pending = await getPendingApprovals();
+  const badge=$('#nav-notif-badge');
+  if(pending.length){ badge.textContent=pending.length; badge.style.display='block'; }
+  else{ badge.style.display='none'; }
+  return pending;
+}
+async function toggleNotifPanel(){
+  const panel=$('#notifPanel');
+  const isOpen = panel.style.display==='block';
+  if(isOpen){ panel.style.display='none'; return; }
+  const pending = await getPendingApprovals();
+  $('#notifList').innerHTML = pending.length
+    ? pending.map(p=>`<div onclick="openFromNotif('${p.category}','${p.id}')" style="padding:8px 6px;border-radius:8px;cursor:pointer;font-size:.83rem" onmouseover="this.style.background='var(--panel-2)'" onmouseout="this.style.background=''">
+        <div style="font-weight:600">${CATEGORIES[p.category].icon} ${esc(p.label)} ${p.project?'· '+esc(p.project):''}</div>
+        <div style="color:var(--ink-dim);font-size:.76rem">${esc(CATEGORIES[p.category].name)} — by ${esc(p.owner)}</div>
+      </div>`).join('')
+    : `<div style="padding:14px 6px;color:var(--ink-dim);font-size:.83rem">Nothing pending your approval right now.</div>`;
+  panel.style.display='block';
+}
+function openFromNotif(cat,id){
+  $('#notifPanel').style.display='none';
+  openCat(cat);
+  setTimeout(()=>inspect(id), 150);
+}
+document.addEventListener('click', e=>{
+  const wrap=$('#nav-notif-wrap');
+  if(wrap && !wrap.contains(e.target)) { const p=$('#notifPanel'); if(p) p.style.display='none'; }
+});
+async function showPendingApprovalPopup(){
+  if(!CURRENT_USER || !AUTH.can('approve')) return;
+  const pending = await getPendingApprovals();
+  if(!pending.length) return;
+  const byCat={};
+  pending.forEach(p=> byCat[p.category]=(byCat[p.category]||0)+1);
+  const lines = Object.entries(byCat).map(([cat,n])=>`${CATEGORIES[cat].icon} ${n} ${CATEGORIES[cat].name}`).join(' · ');
+  const ov=document.createElement('div');
+  ov.id='approvalPopup';
+  ov.style.cssText='position:fixed;top:70px;right:20px;z-index:410;max-width:340px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;opacity:0;transform:translateY(-8px);transition:opacity .35s ease,transform .35s ease';
+  ov.innerHTML = `<div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🔔 ${pending.length} item${pending.length>1?'s':''} awaiting your approval</div>
+    <div style="color:var(--ink-dim);font-size:.8rem">${esc(lines)}</div>`;
+  document.body.appendChild(ov);
+  requestAnimationFrame(()=>{ ov.style.opacity='1'; ov.style.transform='translateY(0)'; });
+  ov.addEventListener('click', ()=>{ ov.remove(); toggleNotifPanel(); });
+  setTimeout(()=>{ ov.style.opacity='0'; ov.style.transform='translateY(-8px)'; setTimeout(()=>ov.remove(),400); }, 6000);
+}
+
 async function renderLeaderboard(){
   const totals = await computeCredits();
   const rows = Object.entries(totals).sort((a,b)=>b[1].total-a[1].total);
@@ -1907,7 +1982,9 @@ async function doLogin(){
     hideLogin();
     renderCatGrid();
     updateCreditBadge();
+    updateNotifBadge();
     showWelcomeAnimation();
+    setTimeout(showPendingApprovalPopup, 4200);   // after the welcome animation clears
   }catch(e){
     err.textContent = (e && e.message && /invalid|credential/i.test(e.message)) ? 'Incorrect email or password.' : 'Sign-in failed. Check connection and try again.';
   }finally{
@@ -1927,6 +2004,8 @@ async function logout(){ await AUTH.logout(); location.reload(); }
         hideLogin();
         renderCatGrid();
         updateCreditBadge();
+        updateNotifBadge();
+        setTimeout(showPendingApprovalPopup, 900);
         return;
       }
     }
